@@ -42,6 +42,8 @@ Stay in scope: no unrelated refactors or drive-by fixes; note them in the PR ins
   - **Title**: what the user gets, not the file names.
   - **Body**: `Closes #<n>`; a few sentences on what and why; the spec cases added or changed;
     the tests that cover them; how to check it by hand (a `./skill-atlas` command and its output).
+  - A demo video, when applicable: record it as [demo-video](../demo-video/SKILL.md) says, before
+    the push, and link it in the body. Not applicable → say so.
 - Watch CI (`gh pr checks --watch`). Red → fix it on the branch; a PR is ready only when green.
 - Comment on the issue with the PR link (`gh issue comment <n> --body "<pr url>"`).
 - Do not merge.
