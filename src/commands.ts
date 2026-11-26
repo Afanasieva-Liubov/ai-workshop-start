@@ -46,6 +46,7 @@ function printRepository(repository: Repository, skills: Skill[], { print }: Con
     print(skill.description ? `${skill.name} — ${firstSentence(skill.description)}` : skill.name);
     print(`  ${skillLink(repository, skill)}`);
     if (skill.copies.length > 0) print(`  also in ${skill.copies.join(', ')}`);
+    if (skill.product) print(`  part of the product: ${skill.product}`);
   }
 }
 

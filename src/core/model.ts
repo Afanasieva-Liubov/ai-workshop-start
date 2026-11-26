@@ -22,6 +22,8 @@ export type Skill = {
   commit: string;
   /** The same skill in other agents' folders. */
   copies: string[];
+  /** Where it ships to users, for a skill that is part of the product: `plugins/mcp-tools/resources`. */
+  product?: string;
 };
 
 /**

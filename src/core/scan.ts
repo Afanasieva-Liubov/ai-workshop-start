@@ -1,4 +1,4 @@
-import { findSkills, type SkillFile } from './find.ts';
+import { findSkills, rootRank, type SkillFile } from './find.ts';
 import { sortSkills, type Repository, type Skill } from './model.ts';
 import { parseSkill } from './parse.ts';
 
@@ -19,18 +19,30 @@ export type ScanResult = { repository: Repository; skills: Skill[]; warnings: st
 export async function scan(source: Source): Promise<ScanResult> {
   const files = findSkills(source.paths, source.repository.name);
   // The files are read at the same time: on GitHub, each one is a request.
-  const results = await Promise.all(files.map((file) => readSkill(source, file)));
-  return {
-    repository: source.repository,
-    skills: sortSkills(results.flatMap((result) => (result.skill ? [result.skill] : []))),
-    warnings: [...source.warnings, ...results.flatMap((result) => (result.warning ? [result.warning] : []))],
-  };
+  const read = await Promise.all(files.map(async (file) => ({ file, bytes: await source.read(file.path) })));
+  const warnings = [...source.warnings];
+  // Identical files are one skill: the preferred one, with the others as its copies.
+  const groups = new Map<string, { file: SkillFile; text: string }[]>();
+  for (const { file, bytes } of read) {
+    if (!bytes) {
+      warnings.push(`${file.path}: listed, but not found at the scanned commit; skipped`);
+      continue;
+    }
+    const text = new TextDecoder().decode(bytes);
+    groups.set(text, [...(groups.get(text) ?? []), { file, text }]);
+  }
+  const skills: Skill[] = [];
+  for (const group of groups.values()) {
+    const [first, ...others] = group.sort((a, b) => rootRank(a.file.path) - rootRank(b.file.path));
+    const { skill, warning } = toSkill(source, first.file, first.text, others.map((other) => other.file.path));
+    skills.push(skill);
+    if (warning) warnings.push(warning);
+  }
+  return { repository: source.repository, skills: sortSkills(skills), warnings };
 }
 
-async function readSkill(source: Source, file: SkillFile): Promise<{ skill?: Skill; warning?: string }> {
-  const bytes = await source.read(file.path);
-  if (!bytes) return { warning: `${file.path}: listed, but not found at the scanned commit; skipped` };
-  const parsed = parseSkill(new TextDecoder().decode(bytes));
+function toSkill(source: Source, file: SkillFile, text: string, copies: string[]): { skill: Skill; warning?: string } {
+  const parsed = parseSkill(text);
   const skill: Skill = {
     id: `${source.repository.id}:${file.path}`,
     repository: source.repository.id,
@@ -38,7 +50,8 @@ async function readSkill(source: Source, file: SkillFile): Promise<{ skill?: Ski
     name: parsed.name ?? file.name,
     description: parsed.description,
     commit: source.repository.commit,
-    copies: file.copies,
+    copies,
+    ...(file.product && { product: file.product }),
   };
   return { skill, warning: parsed.warning && `${file.path}: ${parsed.warning}` };
 }
