@@ -21,8 +21,10 @@ A video shows the real thing: the real `./skill-atlas` in a real terminal
 - `npm ci && npm i --no-save playwright && npx playwright install ffmpeg`
 - `ttyd`, `ffmpeg` and Google Chrome on the machine; the ports 7681 and 4173 free. Missing → install
   them (`apt-get install ffmpeg`, the ttyd release binary, Chrome's `.deb`).
-- `npx playwright install ffmpeg` cannot download → the system one works:
-  `ln -s "$(which ffmpeg)" ~/.cache/ms-playwright/ffmpeg-<version>/ffmpeg-linux`, the path its error names.
+- `npx playwright install ffmpeg` cannot download → the system one works. The trial run fails with
+  `Executable doesn't exist at ~/.cache/ms-playwright/ffmpeg-<version>/ffmpeg-linux`; that folder does not
+  exist yet, so make it, then link:
+  `mkdir -p ~/.cache/ms-playwright/ffmpeg-<version> && ln -s "$(which ffmpeg)" ~/.cache/ms-playwright/ffmpeg-<version>/ffmpeg-linux`
 - Cannot be recorded here → no video; say in the PR what is missing. Never a mock-up instead.
 
 ## The script
