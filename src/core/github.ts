@@ -8,6 +8,8 @@ export type GitHubOptions = {
   fetch: Fetch;
   /** With a token, skills are found through code search; without it, through the tree. */
   token?: string;
+  /** The files that may be skills, when they are already known (an organization's code search): no search of its own. */
+  paths?: string[];
 };
 
 const API = 'https://api.github.com';
@@ -21,6 +23,75 @@ export function parseGitHubUrl(input: string): { owner: string; repo: string; re
   const match = /^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/tree\/([^?#]+?))?\/?$/i.exec(input.trim());
   if (!match) return undefined;
   return { owner: match[1], repo: match[2], ...(match[3] && { ref: match[3] }) };
+}
+
+/** `https://github.com/<owner>`, an organization or a user, by the same rules as `parseGitHubUrl`. */
+export function parseGitHubOwnerUrl(input: string): { owner: string } | undefined {
+  const match = /^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/?$/i.exec(input.trim());
+  return match ? { owner: match[1] } : undefined;
+}
+
+/** A repository of an organization or a user, to be opened when it is scanned. */
+export type OwnedRepository = { id: string; open(): Promise<Source> };
+
+/** An organization or a user, and its repositories to scan, sorted by name. */
+export type Owner = { name: string; repositories: OwnedRepository[] };
+
+/**
+ * Lists an organization's or a user's repositories, forks and archived ones left out. With a token,
+ * one code search over the owner finds the skills, and only the repositories it names are scanned;
+ * without one, each repository is listed through its tree.
+ */
+export async function openOwner(input: string, options: GitHubOptions): Promise<Owner> {
+  const name = parseGitHubOwnerUrl(input);
+  if (!name) throw new AtlasError(`Not a GitHub organization or user URL: ${input}`);
+  // All the repositories share one limit on requests at a time, not one each.
+  const shared: GitHubOptions = { fetch: limitConcurrency(options.fetch, CONCURRENT_REQUESTS), token: options.token };
+  const github = client(shared);
+  const { login, repositories } = await listRepositories(github, name.owner);
+  const found = options.token ? await searchOwnerPaths(github, login) : undefined;
+  const scanned = found ? repositories.filter((id) => found.has(id.toLowerCase())) : repositories;
+  const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  const sorted = [...scanned].sort((a, b) => compare(a.toLowerCase(), b.toLowerCase()) || compare(a, b));
+  return {
+    name: login,
+    repositories: sorted.map((id) => ({
+      id,
+      open: () => openGitHub(`https://github.com/${id}`, { ...shared, ...(found && { paths: found.get(id.toLowerCase()) }) }),
+    })),
+  };
+}
+
+/** `owner/repo` of every repository that is neither a fork nor archived, 100 a page. */
+async function listRepositories(github: Client, owner: string): Promise<{ login: string; repositories: string[] }> {
+  const { login, type } = await github.json<{ login: string; type: string }>(
+    `${API}/users/${encodeURIComponent(owner)}`,
+    `Organization or user not found: https://github.com/${owner}`,
+  );
+  const list = type === 'Organization' ? `${API}/orgs/${login}/repos?type=all` : `${API}/users/${login}/repos?type=owner`;
+  const repositories: string[] = [];
+  for (let page = 1; ; page++) {
+    const items = await github.json<{ full_name: string; fork: boolean; archived: boolean }[]>(`${list}&per_page=100&page=${page}`);
+    for (const item of items) if (!item.fork && !item.archived) repositories.push(item.full_name);
+    if (items.length < 100) return { login, repositories };
+  }
+}
+
+/** One code search over the whole owner: the files that may be skills, by lowercased `owner/repo`. */
+async function searchOwnerPaths(github: Client, owner: string): Promise<Map<string, string[]>> {
+  const found = new Map<string, Set<string>>(); // pages can repeat a result
+  // GitHub returns at most 1000 results: ten pages.
+  for (let page = 1; page <= 10; page++) {
+    const result = await github.json<{ total_count: number; items: { path: string; repository: { full_name: string } }[] }>(
+      `${API}/search/code?q=filename:SKILL.md+user:${owner}&per_page=100&page=${page}`,
+    );
+    for (const item of result.items) {
+      const id = item.repository.full_name.toLowerCase();
+      found.set(id, (found.get(id) ?? new Set()).add(item.path));
+    }
+    if (result.items.length < 100 || page * 100 >= result.total_count) break;
+  }
+  return new Map([...found].map(([id, paths]) => [id, [...paths]]));
 }
 
 /** Resolves the ref, or the default branch, to a commit and lists the files that may be skills. */
@@ -38,7 +109,12 @@ export async function openGitHub(input: string, options: GitHubOptions): Promise
     `Not found in https://github.com/${id}: ${name.ref ?? info.default_branch}`,
   );
   // Code search sees only the default branch as it is now, so a ref is listed through its tree.
-  const paths = options.token && !name.ref ? await searchPaths(github, id) : await treePaths(github, id, sha);
+  const paths =
+    options.paths && !name.ref
+      ? options.paths
+      : options.token && !name.ref
+        ? await searchPaths(github, id)
+        : await treePaths(github, id, sha);
   const [organization, repo] = id.split('/');
   return {
     repository: { id, organization, name: repo, url: `https://github.com/${id}`, commit: sha },
@@ -86,25 +162,33 @@ type Client = ReturnType<typeof client>;
 
 const CONCURRENT_REQUESTS = 8;
 
+/** At most `limit` requests at a time: GitHub turns away too many at once (its secondary rate limit). */
+function limitConcurrency(fetch: Fetch, limit: number): Fetch {
+  let running = 0;
+  const waiting: (() => void)[] = [];
+  return async (url, init) => {
+    if (running >= limit) await new Promise<void>((resolve) => waiting.push(resolve));
+    running++;
+    try {
+      return await fetch(url, init);
+    } finally {
+      running--;
+      waiting.shift()?.();
+    }
+  };
+}
+
 function client({ fetch, token }: GitHubOptions) {
   const headers: Record<string, string> = { Accept: 'application/vnd.github+json' };
   if (token) headers.Authorization = `Bearer ${token}`;
   const answers = new Map<string, Promise<unknown>>(); // the root tree is asked for once per skill root
-
-  // A few requests at a time: GitHub turns away too many at once (its secondary rate limit).
-  let running = 0;
-  const waiting: (() => void)[] = [];
+  const limited = limitConcurrency(fetch, CONCURRENT_REQUESTS);
 
   async function get(url: string, init?: { headers: Record<string, string> }): Promise<Response> {
-    if (running >= CONCURRENT_REQUESTS) await new Promise<void>((resolve) => waiting.push(resolve));
-    running++;
     try {
-      return await fetch(url, init);
+      return await limited(url, init);
     } catch (error) {
       throw new AtlasError(`Cannot reach GitHub: ${describe(error)}`);
-    } finally {
-      running--;
-      waiting.shift()?.();
     }
   }
 
