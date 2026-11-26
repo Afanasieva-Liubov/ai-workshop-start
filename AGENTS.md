@@ -1,6 +1,9 @@
 # AGENTS.md
 ## Specs
 Read [./spec](spec/) first. Update it with the code.
+## Memory
+Notes from earlier tasks are in [memory/](memory/README.md); search them when needed.
+At the end of a task, use [update-memory](.agents/skills/update-memory/SKILL.md).
 ## Tests
 Integration tests for every case in the spec.
 ## Definition of done

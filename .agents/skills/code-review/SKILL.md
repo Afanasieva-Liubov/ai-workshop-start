@@ -45,3 +45,4 @@ gh pr edit <pr> --add-label "Ready to Merge"
 ## Skip
 - Style nits the code already follows elsewhere
 - Comments you cannot reproduce: check first, or leave them out
+- Notes in `memory/`: they are never reviewed ([update-memory](../update-memory/SKILL.md))
