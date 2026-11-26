@@ -21,6 +21,8 @@ repository link, its skills, a filter field over them, and their `SKILL.md`.
 
 Set `GITHUB_TOKEN` for a higher GitHub rate limit. `npm test` runs the tests; `npm run test:e2e`, with
 `GITHUB_TOKEN`, runs the CLI on real repositories at fixed commits and compares with [e2e/expected](e2e/expected/).
+`npm run test:demo` plays [the demo](docs/demo/README.md#tests) as Playwright tests, in a real terminal and
+browser, and records a video of every test.
 
 - [spec/](spec/): what it does. [AGENTS.md](AGENTS.md): the definition of done.
 - [fixture/](fixture/README.md): a small repository for the tests.

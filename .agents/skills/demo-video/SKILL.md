@@ -18,7 +18,7 @@ A video shows the real thing: the real `./skill-atlas` in a real terminal
 - Only what is on the branch and in the [spec](../../../spec/): a video shows cases, it does not invent them.
 
 ## Before you start
-- `npm ci && npm i --no-save playwright && npx playwright install ffmpeg`
+- `npm ci && npx playwright install ffmpeg`: `npm ci` brings Playwright and the demo's fonts
 - `ttyd`, `ffmpeg` and Google Chrome on the machine; the ports 7681 and 4173 free. Missing → install
   them (`apt-get install ffmpeg`, the ttyd release binary, Chrome's `.deb`).
 - `npx playwright install ffmpeg` cannot download → the system one works. The trial run fails with
@@ -98,7 +98,8 @@ view: [filter.mjs](../../../docs/demo/filter.mjs).
 
 ## Attach it
 - [docs/demo/README.md](../../../docs/demo/README.md): a section for the video, its timeline (`Time`, `Shows`).
-- Commit the script and the MP4 with the change. No `playwright` in `package.json`.
+- Commit the script and the MP4 with the change.
+- Its scenes as tests too, `tests/demo/<name>.spec.ts`, on the same stage: [Demo tests](../../../spec/analysis.md#demo-tests).
 - In the PR body, after the push, a link that pins the commit; `gh` cannot upload a file to a PR:
   `https://github.com/<owner>/<repo>/blob/<commit>/docs/demo/<name>.mp4`, and what it shows, in a few lines.
 - Under Air, also copy the MP4 to `$AIR_ARTIFACTS_DIR`.

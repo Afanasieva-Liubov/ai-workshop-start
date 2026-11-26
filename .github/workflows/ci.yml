@@ -32,3 +32,29 @@ jobs:
         run: npm run test:e2e
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # The demo as tests (spec/analysis.md#demo-tests): the real terminal and web view in Google Chrome, on the
+  # demo's stage; a video of every test, every run, kept as the run's `demo-tests` artifact.
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Google Chrome is on the runner already.
+      - name: ttyd and ffmpeg
+        run: |
+          sudo curl -fsSL -o /usr/local/bin/ttyd https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64
+          sudo chmod +x /usr/local/bin/ttyd
+          npx playwright install ffmpeg
+      - run: npm run test:demo
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: demo-tests
+          path: |
+            test-results/
+            playwright-report/

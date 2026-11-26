@@ -24,10 +24,11 @@ would push the output off the screen. The web view shows it under the field.
 The real `./skill-atlas` in a real terminal ([ttyd](https://github.com/tsl0922/ttyd)) and the real
 `./skill-atlas serve`, driven by [Playwright](https://playwright.dev) in Google Chrome; ffmpeg makes the MP4.
 [recorder.mjs](recorder.mjs) is that plumbing; a video is a small script with its scenes, `<name>.mjs` →
-`<name>.mp4`.
+`<name>.mp4`. [stage.mjs](stage.mjs) is the stage, the same for the videos and their tests: the fixture,
+1280×720, and only the DejaVu fonts ([fonts.conf](fonts.conf)), whatever the machine has installed.
 
 ```console
-$ npm ci && npm i --no-save playwright && npx playwright install ffmpeg
+$ npm ci && npx playwright install ffmpeg
 $ node docs/demo/filter.mjs
 …/docs/demo/filter.mp4
 $ node docs/demo/filter.mjs /tmp/filter.mp4    # a trial run, to another path
@@ -35,3 +36,17 @@ $ node docs/demo/filter.mjs /tmp/filter.mp4    # a trial run, to another path
 
 It needs `ttyd`, `ffmpeg` and Google Chrome on the machine, and the ports 7681 and 4173 free.
 A new video, and the cases ready for it: the [demo-video](../../.agents/skills/demo-video/SKILL.md) skill.
+
+## Tests
+The demo, as [Playwright tests](../../tests/demo/filter.spec.ts): each scene of [filter.mjs](filter.mjs)
+on the same stage, checked for what it shows, and recorded, every run: `test-results/<test>/video.webm`.
+[Demo tests](../../spec/analysis.md#demo-tests) in the spec; in CI, the `demo-tests` artifact.
+
+```console
+$ npm ci && npx playwright install ffmpeg
+$ npm run test:demo
+  10 passed (37s)
+$ ls test-results/*/video.webm
+```
+
+The same tools as a recording: `ttyd` and Google Chrome, the ports 7681 and 4173 free.

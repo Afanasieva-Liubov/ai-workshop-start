@@ -2,18 +2,15 @@
 // `./skill-atlas serve`, driven by Playwright in Google Chrome; ffmpeg makes the MP4.
 // A video is a small script that calls record() with its scenes: see filter.mjs, and
 // .agents/skills/demo-video/SKILL.md for the cases. Needs ttyd, ffmpeg and Google Chrome.
+// The stage (data, viewport, fonts, terminal, web view) is stage.mjs, shared with the demo's tests.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
+import { browserEnv, contextOptions, root, serve, size, ttyd, ttyUrl, webUrl } from './stage.mjs';
 
-export const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-export const fixture = join(root, 'fixture');
-const size = { width: 1280, height: 720 };
-const TTY = 7681, WEB = 4173;
-export const webUrl = `http://127.0.0.1:${WEB}/`;
+export { fixture, root, webUrl } from './stage.mjs';
 
 async function until(url) {
   for (let i = 0; i < 100; i++) {
@@ -32,15 +29,13 @@ export async function record(name, scenes) {
     children.push(spawn(cmd, args, { cwd: root, env: { ...process.env, ...env }, stdio: 'ignore' }));
   let browser;
   try {
-    // A clean shell: `$ ` prompt, no history, in the checkout.
-    start('ttyd', ['-p', String(TTY), '-i', '127.0.0.1', '-W', '-t', 'fontSize=17', '-t', 'disableLeaveAlert=true',
-      'bash', '--norc', '--noprofile'], { PS1: '$ ', HISTFILE: '/dev/null' });
-    start('node', ['src/cli.ts', 'serve', String(WEB)]);
-    await until(`http://127.0.0.1:${TTY}/`);
+    start(ttyd.command, ttyd.args, ttyd.env);
+    start(serve.command, serve.args);
+    await until(ttyUrl);
     await until(webUrl);
 
-    browser = await chromium.launch({ channel: 'chrome' });
-    const context = await browser.newContext({ viewport: size, recordVideo: { dir: videos, size } });
+    browser = await chromium.launch({ channel: 'chrome', env: { ...process.env, ...browserEnv } });
+    const context = await browser.newContext({ ...contextOptions, recordVideo: { dir: videos, size } });
     const page = await context.newPage();
     const wait = (ms) => page.waitForTimeout(ms);
 
@@ -56,7 +51,7 @@ export async function record(name, scenes) {
       },
       // Opens the terminal, in the checkout, ready for run().
       async terminal() {
-        await page.goto(`http://127.0.0.1:${TTY}/`);
+        await page.goto(ttyUrl);
         await page.waitForSelector('.xterm-helper-textarea');
         await page.click('.xterm');
         await wait(600);
