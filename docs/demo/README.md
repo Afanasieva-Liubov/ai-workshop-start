@@ -40,13 +40,17 @@ A new video, and the cases ready for it: the [demo-video](../../.agents/skills/d
 ## Tests
 The demo, as [Playwright tests](../../tests/demo/filter.spec.ts): each scene of [filter.mjs](filter.mjs)
 on the same stage, checked for what it shows, and recorded, every run: `test-results/<test>/video.webm`.
+The end of each scene is a screenshot, compared pixel for pixel with its baseline in
+[tests/demo/screenshots/](../../tests/demo/screenshots/), made on Linux, like CI: a changed pixel fails the test.
+The stage runs in `/tmp/skill-atlas-stage`, so that the paths on screen are the same on every machine.
 [Demo tests](../../spec/analysis.md#demo-tests) in the spec; in CI, the `demo-tests` artifact.
 
 ```console
 $ npm ci && npx playwright install ffmpeg
 $ npm run test:demo
-  10 passed (37s)
+  11 passed (40s)
 $ ls test-results/*/video.webm
+$ npx playwright test --update-snapshots    # the screenshots again, on purpose, on Linux
 ```
 
 The same tools as a recording: `ttyd` and Google Chrome, the ports 7681 and 4173 free.
