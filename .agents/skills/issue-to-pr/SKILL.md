@@ -45,3 +45,13 @@ Stay in scope: no unrelated refactors or drive-by fixes; note them in the PR ins
 - Watch CI (`gh pr checks --watch`). Red → fix it on the branch; a PR is ready only when green.
 - Comment on the issue with the PR link (`gh issue comment <n> --body "<pr url>"`).
 - Do not merge.
+
+## After the pull request
+Stay in the same session **for an hour**, and check the PR **every few minutes** (about 5):
+- `gh pr view <pr> --json state,reviewDecision,comments,reviews` and
+  `gh api repos/{owner}/{repo}/pulls/<pr>/comments` for inline comments; `gh pr checks <pr>` for CI.
+- New review comments or a red CI → handle them as [address-review](../address-review/SKILL.md) says,
+  on the same branch, then keep checking.
+- Merged or closed → stop.
+- After the hour, stop: Air cannot continue a finished session; later reviews are picked up by a
+  separate automation that follows [address-review](../address-review/SKILL.md).
