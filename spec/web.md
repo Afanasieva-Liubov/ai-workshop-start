@@ -15,6 +15,7 @@ and runs until stopped. *Nothing is stored*.
 - The count shows `<n> of <total> skills`; no match → `no skills match "<words>"`
 - `?filter=<words>` in the address fills it on load (with `?repository=`); typing updates the address
 - The selected skill stays shown only while it matches
+- On load, the first *matching* skill is selected; the arrow keys skip the skills it hides
 ## Server
 - Listens on `127.0.0.1` only; a request whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>` → `403`
 - `GET /api/scan?repository=<link>` → the scan as JSON: `repository`, `skills` (each with its `link` and
