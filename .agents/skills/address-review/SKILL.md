@@ -13,7 +13,8 @@ that it has finished, and Air cannot continue it, so this is a new session.
 - Given none: the open PRs whose issue is labeled `Delegated to AI` and that have unanswered review
   comments or a red CI. None → stop and say so; do not invent work.
 - Closed, merged, or not linked to a `Delegated to AI` issue (`Closes #<n>` in the body) → stop:
-  it is not yours.
+  it is not yours. Closed or merged → first delete its claims (see [Claim](#claim-before-you-answer)).
+- Unanswered means **not claimed**: see [Claim before you answer](#claim-before-you-answer).
 
 ## Before you start
 - Read [spec/](../../../spec/), [AGENTS.md](../../../AGENTS.md) and the linked issue
@@ -26,9 +27,34 @@ Collect what is not yet answered:
 - Inline comments: `gh api repos/{owner}/{repo}/pulls/<pr>/comments`
 - CI: `gh pr checks <pr>`; a red check → `gh run view <run> --log-failed`
 
-A comment is answered if you (or the earlier session) already replied to it and nothing came after.
+## Claim before you answer
+The [issue-to-pr](../issue-to-pr/SKILL.md) session and this automation can both be looking at the PR
+at the same time. A comment, a review or a red CI run is handled by whoever **claims** it first; the
+claim is a Git ref on GitHub, and creating one that already exists fails, so only one of them wins.
 
-For each comment:
+| Feedback | Key |
+| --- | --- |
+| Inline comment | `review-comment-<id>` |
+| PR comment | `issue-comment-<id>` |
+| Review with a body | `review-<id>` |
+| Red CI run | `ci-<run id>` |
+
+Right before you handle one, claim it:
+```
+gh api repos/{owner}/{repo}/git/refs -f ref=refs/ai-claims/pr-<pr>/<key> -f sha=<PR head sha>
+```
+- Created → it is yours: handle it and reply.
+- `Reference already exists` (HTTP 422) → the other session has it, or already answered it: skip it.
+  Never reply to it, never delete someone else's claim.
+- See what is claimed: `gh api repos/{owner}/{repo}/git/matching-refs/ai-claims/pr-<pr>/ --jq '.[].ref'`.
+- You claimed it but cannot finish (stopped, crashed, ran out of time) → delete your claim
+  (`gh api -X DELETE repos/{owner}/{repo}/git/refs/ai-claims/pr-<pr>/<key>`), so the next run picks it up.
+- A follow-up from the reviewer is a new comment with a new id, so a new claim.
+- The PR is merged or closed → delete all its claims (`refs/ai-claims/pr-<pr>/*`).
+
+Claim one item at a time, just before working on it, not the whole list up front.
+
+For each comment you claimed:
 - **Reproduce it first** (the command, input or test it names). Not reproducible → reply with what
   you ran and what you saw; change nothing.
 - **Valid** → fix it as [issue-to-pr](../issue-to-pr/SKILL.md) says: spec first, a test that fails
@@ -39,7 +65,8 @@ For each comment:
 ## Done
 - The same checks as [issue-to-pr](../issue-to-pr/SKILL.md): `npm run typecheck`, `npm test`,
   `./skill-atlas scan ./fixture` exits 0, `npm run test:e2e` if `GITHUB_TOKEN` is set.
-- Commit: `<what changed> (review of #<pr>)`; `git push` to the PR's branch. No force-push.
+- Commit: `<what changed> (review of #<pr>)`; `git pull --rebase`, then `git push` to the PR's
+  branch: the other session may have pushed meanwhile. No force-push.
 - Reply to each comment you handled: inline ones in their thread
   (`gh api repos/{owner}/{repo}/pulls/<pr>/comments/<id>/replies -f body=...`), others with
   `gh pr comment <pr>`: what changed and the commit, or why nothing did.

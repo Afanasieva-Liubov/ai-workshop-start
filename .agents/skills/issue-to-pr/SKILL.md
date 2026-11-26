@@ -51,7 +51,10 @@ Stay in the same session **for an hour**, and check the PR **every few minutes**
 - `gh pr view <pr> --json state,reviewDecision,comments,reviews` and
   `gh api repos/{owner}/{repo}/pulls/<pr>/comments` for inline comments; `gh pr checks <pr>` for CI.
 - New review comments or a red CI → handle them as [address-review](../address-review/SKILL.md) says,
-  on the same branch, then keep checking.
-- Merged or closed → stop.
+  on the same branch, then keep checking. **Claim each one first**
+  ([Claim before you answer](../address-review/SKILL.md#claim-before-you-answer)): the address-review
+  automation may already be running on the same PR; whatever it claimed is not yours.
+- Merged or closed → delete the PR's claims, then stop.
 - After the hour, stop: Air cannot continue a finished session; later reviews are picked up by a
-  separate automation that follows [address-review](../address-review/SKILL.md).
+  separate automation that follows [address-review](../address-review/SKILL.md). Before you stop,
+  delete any claim you made but did not answer, so that automation picks it up.
