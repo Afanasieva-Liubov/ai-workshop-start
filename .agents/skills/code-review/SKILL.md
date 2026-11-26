@@ -11,7 +11,8 @@ description: Review a change in this repository with a short summary and inline 
 
 ## The review
 **Short.** A few sentences at the top: what the change does, and whether it is ready.
-Then the inline comments — nothing else.
+Then the inline comments — nothing else. A [simple fix](#a-simple-fix) gets none; a pull request
+with nothing broken gets the label [`Ready to Merge`](#ready-to-merge).
 
 ## Inline comments
 One problem per comment, attached to the line it is about. Each comment has:
@@ -24,6 +25,22 @@ src/find.ts:42
 A skill under `src/test/resources` is listed: `test` is checked only as the last folder.
 Reproduce: `./skill-atlas scan fixture` → `weather-retrieval` is printed; the spec says it is skipped.
 ```
+
+## A simple fix
+A simple fix (a typo, a rename, a one-line change) gets no inline comments: the short summary is
+the whole review. If it breaks something, say so there, with how to reproduce.
+
+## Ready to Merge
+When the target is a pull request and nothing in it is broken (it matches the spec, `npm test`
+passes, and you have no problem to report), add the label `Ready to Merge`:
+
+```
+gh pr edit <pr> --add-label "Ready to Merge"
+```
+
+- The label is missing in the repository → create it first: `gh label create "Ready to Merge"`.
+- Something is broken → no label.
+- The label is all: do not approve, do not merge.
 
 ## Skip
 - Style nits the code already follows elsewhere
