@@ -258,3 +258,18 @@ test('the page: no match → no skills match "<words>"', async () => {
   assert.equal(view.empty(), null);
   assert.deepEqual(view.names(), ['writing-lint-checks']);
 });
+
+test('the page: the arrow keys skip the skills the filter hides', async () => {
+  const view = await filterPage(`repository=${encodeURIComponent(FIXTURE)}&filter=repository`);
+  // commits and writing-lint-checks match; mps-aspect-generator, mps-tests and release-checklist between them do not.
+  assert.deepEqual(view.names(), ['commits', 'writing-lint-checks']);
+  const items = [...view.document.querySelectorAll<HTMLElement>('#skills li')];
+  const named = (name: string) => items.find((item) => item.querySelector('.name')!.firstChild!.textContent === name)!;
+  const press = (key: string) =>
+    (view.document.activeElement as HTMLElement).dispatchEvent(new view.window.KeyboardEvent('keydown', { key, bubbles: true }));
+  named('commits').focus();
+  press('ArrowDown');
+  assert.equal(view.document.activeElement, named('writing-lint-checks'));
+  press('ArrowUp');
+  assert.equal(view.document.activeElement, named('commits'));
+});
