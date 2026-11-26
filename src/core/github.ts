@@ -10,6 +10,8 @@ export type GitHubOptions = {
   token?: string;
   /** The files that may be skills, when they are already known (an organization's code search): no search of its own. */
   paths?: string[];
+  /** Listed through the tree even with a token: an organization's code search was cut short, and one search per repository would hit its rate limit. */
+  tree?: boolean;
 };
 
 const API = 'https://api.github.com';
@@ -50,6 +52,8 @@ export async function openOwner(input: string, options: GitHubOptions): Promise<
   const github = client(shared);
   const { login, repositories } = await listRepositories(github, name.owner);
   const found = options.token ? await searchOwnerPaths(github, login) : undefined;
+  // Without the owner's search, or with one cut short, each repository is listed through its tree.
+  const tree = !found;
   const scanned = found ? repositories.filter((id) => found.has(id.toLowerCase())) : repositories;
   const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   const sorted = [...scanned].sort((a, b) => compare(a.toLowerCase(), b.toLowerCase()) || compare(a, b));
@@ -57,7 +61,7 @@ export async function openOwner(input: string, options: GitHubOptions): Promise<
     name: login,
     repositories: sorted.map((id) => ({
       id,
-      open: () => openGitHub(`https://github.com/${id}`, { ...shared, ...(found && { paths: found.get(id.toLowerCase()) }) }),
+      open: () => openGitHub(`https://github.com/${id}`, { ...shared, ...(found ? { paths: found.get(id.toLowerCase()) } : { tree }) }),
     })),
   };
 }
@@ -68,7 +72,13 @@ async function listRepositories(github: Client, owner: string): Promise<{ login:
     `${API}/users/${encodeURIComponent(owner)}`,
     `Organization or user not found: https://github.com/${owner}`,
   );
-  const list = type === 'Organization' ? `${API}/orgs/${login}/repos?type=all` : `${API}/users/${login}/repos?type=owner`;
+  const list =
+    type === 'Organization'
+      ? `${API}/orgs/${login}/repos?type=all`
+      : // `/users/<user>/repos` lists only public repositories; the user's own token sees the private ones too.
+        (await isAuthenticatedUser(github, login))
+        ? `${API}/user/repos?affiliation=owner`
+        : `${API}/users/${login}/repos?type=owner`;
   const repositories: string[] = [];
   for (let page = 1; ; page++) {
     const items = await github.json<{ full_name: string; fork: boolean; archived: boolean }[]>(`${list}&per_page=100&page=${page}`);
@@ -77,14 +87,32 @@ async function listRepositories(github: Client, owner: string): Promise<{ login:
   }
 }
 
-/** One code search over the whole owner: the files that may be skills, by lowercased `owner/repo`. */
-async function searchOwnerPaths(github: Client, owner: string): Promise<Map<string, string[]>> {
+/** Whether the token belongs to this user. Without a token, or with one that `/user` turns away (an app's), it does not. */
+async function isAuthenticatedUser(github: Client, login: string): Promise<boolean> {
+  if (!github.authenticated) return false;
+  try {
+    const user = await github.json<{ login: string }>(`${API}/user`);
+    return user.login.toLowerCase() === login.toLowerCase();
+  } catch (error) {
+    if (error instanceof AtlasError) return false;
+    throw error;
+  }
+}
+
+/**
+ * One code search over the whole owner: the files that may be skills, by lowercased `owner/repo`.
+ * Undefined when GitHub cannot return them all (more than its 1000 results, or an incomplete answer).
+ */
+async function searchOwnerPaths(github: Client, owner: string): Promise<Map<string, string[]> | undefined> {
   const found = new Map<string, Set<string>>(); // pages can repeat a result
   // GitHub returns at most 1000 results: ten pages.
   for (let page = 1; page <= 10; page++) {
-    const result = await github.json<{ total_count: number; items: { path: string; repository: { full_name: string } }[] }>(
-      `${API}/search/code?q=filename:SKILL.md+user:${owner}&per_page=100&page=${page}`,
-    );
+    const result = await github.json<{
+      total_count: number;
+      incomplete_results?: boolean;
+      items: { path: string; repository: { full_name: string } }[];
+    }>(`${API}/search/code?q=filename:SKILL.md+user:${owner}&per_page=100&page=${page}`);
+    if (result.total_count > 1000 || result.incomplete_results) return undefined;
     for (const item of result.items) {
       const id = item.repository.full_name.toLowerCase();
       found.set(id, (found.get(id) ?? new Set()).add(item.path));
@@ -112,7 +140,7 @@ export async function openGitHub(input: string, options: GitHubOptions): Promise
   const paths =
     options.paths && !name.ref
       ? options.paths
-      : options.token && !name.ref
+      : options.token && !options.tree && !name.ref
         ? await searchPaths(github, id)
         : await treePaths(github, id, sha);
   const [organization, repo] = id.split('/');
@@ -207,6 +235,8 @@ function client({ fetch, token }: GitHubOptions) {
   }
 
   return {
+    /** Whether the requests carry a token. */
+    authenticated: Boolean(token),
     /** A GitHub API answer; `notFound` explains a 404. */
     json<T>(url: string, notFound = `Not found on GitHub: ${url}`): Promise<T> {
       if (!answers.has(url)) answers.set(url, request(url, notFound));

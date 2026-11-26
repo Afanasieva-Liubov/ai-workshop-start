@@ -299,12 +299,13 @@ test('github.com/<owner>: the same scheme, www. and trailing slash rules as a re
   assert.equal(parseGitHubOwnerUrl('gitlab.com/JetBrains'), undefined);
 });
 
-test('a user: listed through /users/<user>/repos, page after page until one has fewer than 100', async () => {
+test("a user, with someone else's token: listed through /users/<user>/repos, page after page until one has fewer than 100", async () => {
   const id = (n: number) => `someone/repo-${String(n).padStart(3, '0')}`;
   // 100 forks on the first page; the one repository of their own is on the second.
   const forks = Array.from({ length: 100 }, (_, n) => ({ full_name: id(n), fork: true, archived: false }));
   const user = await atlas(['scan', 'https://github.com/someone/'], {
     'https://api.github.com/users/someone': { status: 200, body: { login: 'someone', type: 'User' } },
+    'https://api.github.com/user': { status: 200, body: { login: 'someone-else' } },
     'https://api.github.com/users/someone/repos?type=owner&per_page=100&page=1': { status: 200, body: forks },
     'https://api.github.com/users/someone/repos?type=owner&per_page=100&page=2': {
       status: 200,
@@ -329,6 +330,83 @@ test('a user: listed through /users/<user>/repos, page after page until one has 
     ].join('\n'),
   );
   assert.equal(user.stderr, '');
+});
+
+test("a user, with their own token: their private repositories too, listed through /user/repos", async () => {
+  const user = await atlas(['scan', 'github.com/Me'], {
+    'https://api.github.com/users/Me': { status: 200, body: { login: 'me', type: 'User' } },
+    // The login is compared without case, as GitHub compares it.
+    'https://api.github.com/user': { status: 200, body: { login: 'ME' } },
+    'https://api.github.com/user/repos?affiliation=owner&per_page=100&page=1': {
+      status: 200,
+      body: [
+        { full_name: 'me/secret', fork: false, archived: false, private: true },
+        { full_name: 'me/open', fork: false, archived: false, private: false },
+      ],
+    },
+    'https://api.github.com/search/code?q=filename:SKILL.md+user:me&per_page=100&page=1': {
+      status: 200,
+      body: { total_count: 1, items: [{ path: '.claude/skills/hidden/SKILL.md', repository: { full_name: 'me/secret' } }] },
+    },
+    'https://api.github.com/repos/me/secret': { status: 200, body: { full_name: 'me/secret', default_branch: 'main' } },
+    'https://api.github.com/repos/me/secret/commits/main': { status: 200, body: { sha: OWNER_COMMIT } },
+    [`https://raw.githubusercontent.com/me/secret/${OWNER_COMMIT}/.claude/skills/hidden/SKILL.md`]: { status: 200, body: skillText('hidden') },
+  });
+  assert.equal(user.code, 0, user.stderr);
+  assert.equal(
+    user.stdout,
+    [
+      'me/secret · 1 skill',
+      'hidden — The hidden skill.',
+      `  https://github.com/me/secret/blob/${OWNER_COMMIT}/.claude/skills/hidden/SKILL.md`,
+      'me · 1 skill in 1 repository',
+    ].join('\n'),
+  );
+  assert.equal(user.stderr, '');
+});
+
+test('an organization with more than 1000 SKILL.md hits: each repository through its tree, none left out', async () => {
+  const tree = (paths: string[]) => ({ status: 200, body: { truncated: false, tree: paths.map((path) => ({ path, mode: '100644', type: 'blob', sha: path })) } });
+  const repository = (name: string, paths: string[]) => ({
+    [`https://api.github.com/repos/big-org/${name}`]: { status: 200, body: { full_name: `big-org/${name}`, default_branch: 'main' } },
+    [`https://api.github.com/repos/big-org/${name}/commits/main`]: { status: 200, body: { sha: OWNER_COMMIT } },
+    [`https://api.github.com/repos/big-org/${name}/git/trees/${OWNER_COMMIT}?recursive=1`]: tree(paths),
+  });
+  const hits = Array.from({ length: 100 }, (_, n) => ({ path: `skills/s${n}/SKILL.md`, repository: { full_name: 'big-org/big' } }));
+  const scanned = await atlas(['scan', 'github.com/big-org'], {
+    'https://api.github.com/users/big-org': { status: 200, body: { login: 'big-org', type: 'Organization' } },
+    'https://api.github.com/orgs/big-org/repos?type=all&per_page=100&page=1': {
+      status: 200,
+      body: [
+        { full_name: 'big-org/big', fork: false, archived: false },
+        { full_name: 'big-org/small', fork: false, archived: false },
+      ],
+    },
+    // Code search returns at most 1000 of these 1200: `small` is past them. No more pages are asked for,
+    // and no search of each repository: that would hit the search's own rate limit.
+    'https://api.github.com/search/code?q=filename:SKILL.md+user:big-org&per_page=100&page=1': {
+      status: 200,
+      body: { total_count: 1200, incomplete_results: false, items: hits },
+    },
+    ...repository('big', ['README.md', 'skills/s0/SKILL.md']),
+    ...repository('small', ['.claude/skills/tiny/SKILL.md']),
+    [`https://raw.githubusercontent.com/big-org/big/${OWNER_COMMIT}/skills/s0/SKILL.md`]: { status: 200, body: skillText('s0') },
+    [`https://raw.githubusercontent.com/big-org/small/${OWNER_COMMIT}/.claude/skills/tiny/SKILL.md`]: { status: 200, body: skillText('tiny') },
+  });
+  assert.equal(scanned.code, 0, scanned.stderr);
+  assert.equal(scanned.stderr, '');
+  assert.equal(
+    scanned.stdout,
+    [
+      'big-org/big · 1 skill',
+      's0 — The s0 skill.',
+      `  https://github.com/big-org/big/blob/${OWNER_COMMIT}/skills/s0/SKILL.md`,
+      'big-org/small · 1 skill',
+      'tiny — The tiny skill.',
+      `  https://github.com/big-org/small/blob/${OWNER_COMMIT}/.claude/skills/tiny/SKILL.md`,
+      'big-org · 2 skills in 2 repositories',
+    ].join('\n'),
+  );
 });
 
 test('without a token: each repository of the organization through its tree, no code search', async () => {

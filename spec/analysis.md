@@ -9,6 +9,8 @@ Skill: id = `repo:path`, name, description, commit, its SKILL.md text
 ## Details
 - **GitHub API**, no clone; *under 5 s* for intellij-community
 - An organization → *under 60 s* for JetBrains, with GITHUB_TOKEN
+- An organization with more than 1000 `SKILL.md` hits (code search's limit) → each repository listed through its tree, none left out
+- A user scanned with their own GITHUB_TOKEN → their private repositories too (`/user/repos`); anyone else's token → public ones
 - A tree too large for one answer → listed directory by directory, never cut short
 - A fixed commit (`/tree/<commit>`) → listed through its tree: code search sees only the default branch
 - The name: front matter, else the directory
