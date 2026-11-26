@@ -28,7 +28,7 @@ Collect what is not yet answered:
 
 A comment is answered if you (or the earlier session) already replied to it and nothing came after.
 
-Do not check minor problems.
+Do not check minor problems: reply that it is minor; change nothing.
 
 For each comment:
 - **Take it**: when you open the comment, reply in its thread that you are taking it (e.g. "Taking
