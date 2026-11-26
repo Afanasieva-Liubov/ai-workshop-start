@@ -72,10 +72,15 @@ Always with the path: without it the video lands in `docs/demo/`.
 **A step in the web view**: act as a user, then read the page.
 ```js
 const text = (selector) => page.locator(selector).innerText();
+// `.name` also holds the badges: the name is its first text node, the badges its `.badge`s.
+const names = (selector) => page.locator(selector).evaluateAll((els) => els.map((e) => e.firstChild.textContent));
+const badges = (selector) => page.locator(selector)
+  .evaluateAll((els) => els.map((e) => [...e.querySelectorAll('.badge')].map((b) => b.textContent)));
 const look = async () => ({
   status: await text('#status'),
-  skills: await page.locator('#skills li:not([hidden]) .name').allInnerTexts(),
-  selected: await page.locator('#skills li[aria-selected="true"] .name').allInnerTexts(),
+  skills: await names('#skills li:not([hidden]) .name'),
+  badges: await badges('#skills li:not([hidden]) .name'), // the badges of each skill, in the same order
+  selected: await names('#skills li[aria-selected="true"] .name'),
   shown: await text('#skill'),
   address: decodeURIComponent(new URL(page.url()).search),
 });
