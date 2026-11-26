@@ -25,7 +25,7 @@ fixture · 1 of 6 skills
 mps-tests — …
 $ ./skill-atlas scan ./fixture release CHECKLIST
 fixture · 1 of 6 skills
-release-checklist — …
+release-checklist
 $ ./skill-atlas scan ./fixture nothing-like-it
 fixture · 0 of 6 skills
 ```
