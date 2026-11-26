@@ -51,6 +51,7 @@ function toSkill(source: Source, file: SkillFile, text: string, copies: string[]
     description: parsed.description,
     commit: source.repository.commit,
     copies,
+    text,
     ...(file.product && { product: file.product }),
   };
   return { skill, warning: parsed.warning && `${file.path}: ${parsed.warning}` };

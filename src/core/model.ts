@@ -24,6 +24,8 @@ export type Skill = {
   copies: string[];
   /** Where it ships to users, for a skill that is part of the product: `plugins/mcp-tools/resources`. */
   product?: string;
+  /** The SKILL.md itself, as read at the scanned commit. */
+  text: string;
 };
 
 /**

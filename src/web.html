@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skill Atlas</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f7f9; --panel: #fff; --fg: #1d2125; --muted: #6b737c; --border: #dde1e6; --accent: #5b6cf0; --warn: #b26b00; --error: #c62828; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16181c; --panel: #1f2227; --fg: #e6e8eb; --muted: #959ca5; --border: #30353c; --accent: #8c98ff; --warn: #e0a640; --error: #ef6b6b; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  header { padding: 20px 24px 12px; }
+  h1 { margin: 0 0 12px; font-size: 22px; }
+  form { display: flex; gap: 8px; }
+  input { flex: 1; padding: 9px 12px; font: inherit; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: inherit; }
+  button { padding: 9px 18px; font: inherit; border: 0; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: progress; }
+  #status { min-height: 1.5em; margin: 10px 0 0; color: var(--muted); }
+  #status.error { color: var(--error); }
+  #warnings { margin: 4px 0 0; padding-left: 20px; color: var(--warn); font-size: 13px; }
+  main { display: grid; grid-template-columns: minmax(260px, 380px) 1fr; gap: 16px; padding: 0 24px 24px; }
+  main[hidden] { display: none; }
+  #skills { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; align-self: start; }
+  #skills li { padding: 10px 14px; border-top: 1px solid var(--border); cursor: pointer; }
+  #skills li:first-child { border-top: 0; }
+  #skills li[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 3px 0 var(--accent); }
+  #skills li:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .name { font-weight: 600; }
+  .description { color: var(--muted); font-size: 13px; }
+  .badge { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 500; vertical-align: 1px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+  article { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 16px 20px; min-width: 0; }
+  article h2 { margin: 0 0 4px; font-size: 18px; }
+  article .meta { font-size: 13px; color: var(--muted); margin: 2px 0; overflow-wrap: anywhere; }
+  article a { color: var(--accent); }
+  pre { margin: 14px 0 0; padding: 14px; border-radius: 6px; background: var(--bg); font: 13px/1.5 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Skill Atlas</h1>
+  <form id="form">
+    <input id="repository" name="repository" type="text" required autofocus
+           placeholder="https://github.com/owner/repo, …/tree/&lt;commit&gt;, or a local directory" aria-label="Repository link">
+    <button id="scan" type="submit">Scan</button>
+  </form>
+  <p id="status" role="status"></p>
+  <ul id="warnings"></ul>
+</header>
+<main id="result" hidden>
+  <ul id="skills" role="listbox" aria-label="Skills"></ul>
+  <article id="skill" aria-live="polite"></article>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...children) => append(Object.assign(document.createElement(tag), props), children);
+function append(node, children) { for (const child of children) if (child != null) node.append(child); return node; }
+const firstSentence = (text) => { const line = text.replace(/\s+/g, ' ').trim(); return /^.*?[.!?](?=\s|$)/.exec(line)?.[0] ?? line; };
+let skills = [];
+
+function show(index) {
+  const skill = skills[index];
+  for (const [i, item] of [...$('skills').children].entries()) item.setAttribute('aria-selected', String(i === index));
+  $('skill').replaceChildren(
+    el('h2', { textContent: skill.name }),
+    skill.description ? el('p', { className: 'meta', textContent: skill.description }) : null,
+    el('p', { className: 'meta' }, el('a', { href: skill.link, textContent: skill.path, target: '_blank', rel: 'noopener' })),
+    skill.copies.length ? el('p', { className: 'meta', textContent: `also in ${skill.copies.join(', ')}` }) : null,
+    skill.product ? el('p', { className: 'meta', textContent: `part of the product: ${skill.product}` }) : null,
+    el('pre', { className: 'text', textContent: skill.text }),
+  );
+}
+
+async function scanRepository(repository) {
+  $('scan').disabled = true;
+  $('status').className = '';
+  $('status').textContent = `Scanning ${repository}…`;
+  $('warnings').replaceChildren();
+  $('result').hidden = true;
+  try {
+    const response = await fetch(`/api/scan?repository=${encodeURIComponent(repository)}`);
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error);
+    skills = body.skills;
+    $('status').textContent = `${body.repository.id} · ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`;
+    $('warnings').replaceChildren(...body.warnings.map((warning) => el('li', { textContent: `warning: ${warning}` })));
+    $('skills').replaceChildren(...skills.map((skill, index) => {
+      const item = el('li', { role: 'option', tabIndex: 0, onclick: () => show(index), onkeydown: (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); show(index); }
+        if (event.key === 'ArrowDown') item.nextElementSibling?.focus();
+        if (event.key === 'ArrowUp') item.previousElementSibling?.focus();
+      } },
+        el('div', { className: 'name', textContent: skill.name }, skill.product ? el('span', { className: 'badge', textContent: 'product' }) : null,
+          skill.copies.length ? el('span', { className: 'badge', textContent: `+${skill.copies.length} ${skill.copies.length === 1 ? 'copy' : 'copies'}` }) : null),
+        skill.description ? el('div', { className: 'description', textContent: firstSentence(skill.description) }) : null);
+      return item;
+    }));
+    $('result').hidden = skills.length === 0;
+    if (skills.length) show(0);
+  } catch (error) {
+    $('status').className = 'error';
+    $('status').textContent = error.message;
+  } finally {
+    $('scan').disabled = false;
+  }
+}
+
+$('form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const repository = $('repository').value.trim();
+  history.replaceState(null, '', `?repository=${encodeURIComponent(repository)}`);
+  scanRepository(repository);
+});
+const initial = new URLSearchParams(location.search).get('repository');
+if (initial) { $('repository').value = initial; scanRepository(initial); }
+</script>
+</body>
+</html>
