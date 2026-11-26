@@ -140,7 +140,9 @@ qa/github.md — not run: GitHub rate limit reached, no GITHUB_TOKEN
   the run scripts. Give their paths; under Air, copy them to `$AIR_ARTIFACTS_DIR/manual-qa/`, and say
   that they are in the run's artifacts.
 - Asked about a pull request → the report as its comment (`gh pr comment <pr>`); `gh` cannot upload a
-  video, so name the file and where it is.
+  video, so name the file and where it is. Then, last, one more comment with exactly this text and
+  nothing else: `gh pr comment <pr> --body "manual-qa FINISHED"`; also when a case failed or was not
+  run. No pull request → no comment.
 - A failed step → an issue, as [qa/README.md](../../../qa/README.md#reporting) says, **only when asked
   to file them**: the script and the step, the command, what was seen instead, the video. First check
   that there is none open for it (`gh issue list --search`).

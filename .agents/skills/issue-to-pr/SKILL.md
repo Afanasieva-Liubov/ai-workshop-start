@@ -46,6 +46,7 @@ Stay in scope: no unrelated refactors or drive-by fixes; note them in the PR ins
     the push, and link it in the body. Not applicable → say so.
 - Watch CI (`gh pr checks --watch`). Red → fix it on the branch; a PR is ready only when green.
 - Comment on the issue with the PR link (`gh issue comment <n> --body "<pr url>"`).
+- [Finished](#finished): the comment `issue-to-pr FINISHED` on the PR.
 - Do not merge.
 
 ## After the pull request
@@ -53,7 +54,16 @@ Stay in the same session **for an hour**, and check the PR **every few minutes**
 - `gh pr view <pr> --json state,reviewDecision,comments,reviews` and
   `gh api repos/{owner}/{repo}/pulls/<pr>/comments` for inline comments; `gh pr checks <pr>` for CI.
 - New review comments or a red CI → handle them as [address-review](../address-review/SKILL.md) says,
-  on the same branch, then keep checking.
+  on the same branch; once the update is pushed and CI is green, [Finished](#finished) again; then
+  keep checking.
 - Merged or closed → stop.
 - After the hour, stop: Air cannot continue a finished session; later reviews are picked up by a
   separate automation that follows [address-review](../address-review/SKILL.md).
+
+## Finished
+Each time the PR is opened or updated (a push to its branch) and its CI is green, one comment on
+the PR, with exactly this text and nothing else:
+
+```
+gh pr comment <pr> --body "issue-to-pr FINISHED"
+```

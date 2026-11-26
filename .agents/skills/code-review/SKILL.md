@@ -42,6 +42,18 @@ gh pr edit <pr> --add-label "Ready to Merge"
 - Something is broken → no label.
 - The label is all: do not approve, do not merge.
 
+## Finished
+When the target is a pull request and this review adds no new inline comments (nothing broken, a
+simple fix, or every problem already commented), end with one comment on the PR, with exactly this
+text and nothing else:
+
+```
+gh pr comment <pr> --body "code-review FINISHED"
+```
+
+- New inline comments added → no `code-review FINISHED`: the review is not done until they are addressed.
+- Not a pull request (a diff, a branch, a path) → no comment: there is no PR to put it on.
+
 ## Skip
 - Style nits the code already follows elsewhere
 - Comments you cannot reproduce: check first, or leave them out
