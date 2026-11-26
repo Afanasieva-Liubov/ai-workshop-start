@@ -65,4 +65,6 @@ Only change what the review asks for: no refactors, no reformatting, no unrelate
   - each comment addressed, and how (the commit);
   - each comment skipped, and why (minor ones too: "minor");
   - the results of the checks above.
+- Last, one comment on the PR, with exactly this text and nothing else:
+  `gh pr comment <pr> --body "address-review FINISHED"`. Also when nothing needed a change.
 - Do not merge, close or approve the PR, and do not resolve the reviewer's threads for them.
