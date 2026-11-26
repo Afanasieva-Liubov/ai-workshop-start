@@ -23,6 +23,10 @@ export async function serve({ open, port }: WebOptions): Promise<{ server: Serve
       response.writeHead(status, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store' });
       response.end(body);
     };
+    // Listening on 127.0.0.1 does not stop DNS rebinding: a page on another name could read local files.
+    const address = server.address();
+    const own = typeof address === 'object' && address ? [`127.0.0.1:${address.port}`, `localhost:${address.port}`] : [];
+    if (!own.includes(request.headers.host?.toLowerCase() ?? '')) return send(403, 'text/plain', 'Forbidden: unknown Host');
     if (request.method !== 'GET') return send(405, 'text/plain', 'Method not allowed');
     if (url.pathname === '/') return send(200, 'text/html', PAGE);
     if (url.pathname !== '/api/scan') return send(404, 'text/plain', 'Not found');

@@ -44,7 +44,8 @@ async function scanCommand(args: string[], context: Context) {
 }
 
 async function serveCommand(args: string[], context: Context) {
-  const port = args.length === 0 ? 4173 : Number(args[0]);
+  // Digits only: `Number` reads '' as 0, '0x10' as 16 and '1e3' as 1000.
+  const port = args.length === 0 ? 4173 : /^\d+$/.test(args[0]) ? Number(args[0]) : NaN;
   if (args.length > 1 || !Number.isInteger(port) || port < 0 || port > 65535) throw new AtlasError('Usage: skill-atlas serve [port]');
   if (!context.serve) throw new AtlasError('serve: not available here');
   context.print(`Skill Atlas web view: ${await context.serve(port)}`);

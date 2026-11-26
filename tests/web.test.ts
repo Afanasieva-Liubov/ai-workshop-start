@@ -3,9 +3,11 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { request } from 'node:http';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { after, test } from 'node:test';
+import { JSDOM } from 'jsdom';
 import { serve } from '../src/web.ts';
 import { CLI, EXAMPLE_COMMIT, FIXTURE, open } from './helpers.ts';
 
@@ -25,6 +27,68 @@ test('the page: a field for the repository link, on 127.0.0.1', async () => {
   const page = await response.text();
   assert.match(page, /<input id="repository"[^>]*aria-label="Repository link"/);
   assert.match(page, /\/api\/scan\?repository=/);
+});
+
+/** The page as a browser shows it, opened at `?repository=<link>`, once the scan has finished. */
+async function page(repository: string) {
+  const dom = await JSDOM.fromURL(`${url}?repository=${encodeURIComponent(repository)}`, {
+    runScripts: 'dangerously',
+    beforeParse: (window) => Object.assign(window, { fetch: (path: string) => fetch(new URL(path, url)) }),
+  });
+  const document = dom.window.document;
+  const button = document.getElementById('scan') as HTMLButtonElement;
+  for (let i = 0; i < 200 && (button.disabled || !document.getElementById('status')!.textContent); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  after(() => dom.window.close());
+  return document;
+}
+
+test('the page: ?repository=<link> scans on load; skills with badges, warnings under the field, the first skill shown', async () => {
+  const document = await page(FIXTURE);
+  assert.equal((document.getElementById('repository') as HTMLInputElement).value, FIXTURE);
+  assert.equal(document.getElementById('status')!.textContent, 'fixture · 6 skills');
+  assert.equal(document.getElementById('result')!.hidden, false);
+  const items = [...document.querySelectorAll('#skills li')].map((li) => li.querySelector('.name')!.textContent);
+  assert.deepEqual(items, ['code-style', 'commits', 'mps-aspect-generatorproduct', 'mps-tests+1 copy', 'release-checklist', 'writing-lint-checks']);
+  const warnings = [...document.querySelectorAll('#warnings li')].map((li) => li.textContent);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0]!, /^warning: \.agents\/skills\/release-checklist\/SKILL\.md: malformed front matter: /);
+  const shown = document.getElementById('skill')!;
+  assert.equal(shown.querySelector('h2')!.textContent, 'code-style');
+  assert.equal(shown.querySelector('pre')!.textContent, readFileSync(join(FIXTURE, '.github/skills/code-style/SKILL.md'), 'utf8'));
+});
+
+test('the page: a selected skill shows its link, also in and part of the product', async () => {
+  const document = await page(FIXTURE);
+  const item = (name: string) => [...document.querySelectorAll<HTMLElement>('#skills li')].find((li) => li.textContent!.startsWith(name))!;
+  item('mps-tests').click();
+  const meta = () => [...document.querySelectorAll('#skill .meta')].map((p) => p.textContent);
+  assert.ok(meta().includes('also in .claude/skills/mps-tests/SKILL.md'), String(meta()));
+  assert.equal(document.querySelector<HTMLAnchorElement>('#skill a')!.href, `${pathToFileURL(FIXTURE).href}/.agents/skills/mps-tests/SKILL.md`);
+  item('mps-aspect-generator').click();
+  assert.ok(meta().includes('part of the product: plugins/mcp-tools/resources'), String(meta()));
+});
+
+test('the page: an error → its clear message in place of the result', async () => {
+  const document = await page(join(FIXTURE, 'no-such-directory'));
+  const status = document.getElementById('status')!;
+  assert.equal(status.className, 'error');
+  assert.match(status.textContent!, /^Not a GitHub URL or a readable directory: .*no-such-directory$/);
+  assert.equal(document.getElementById('result')!.hidden, true);
+});
+
+test('a Host other than 127.0.0.1:<port> or localhost:<port> → 403 (DNS rebinding)', async () => {
+  const { port } = new URL(url);
+  const status = (host: string) =>
+    new Promise<number>((resolve, reject) => {
+      const path = `/api/scan?repository=${encodeURIComponent(FIXTURE)}`;
+      request({ host: '127.0.0.1', port, path, headers: { host } }, (response) => resolve(response.resume().statusCode!)).on('error', reject).end();
+    });
+  assert.equal(await status(`attacker.example:${port}`), 403);
+  assert.equal(await status('127.0.0.1'), 403);
+  assert.equal(await status(`localhost:${port}`), 200);
+  assert.equal(await status(`127.0.0.1:${port}`), 200);
 });
 
 test('a GitHub repository: its skills, each with its pinned link and its SKILL.md', async () => {
@@ -86,9 +150,11 @@ test('skill-atlas serve <port>: prints the URL and serves the page until stopped
 });
 
 test('skill-atlas serve with a bad port → usage, exit code 1', () => {
-  const bad = spawnSync(process.execPath, [CLI, 'serve', 'eighty'], { encoding: 'utf8' });
-  assert.equal(bad.status, 1);
-  assert.equal(bad.stderr, 'Usage: skill-atlas serve [port]\n');
+  for (const port of ['eighty', '', '0x10', '1e3', '-1', '65536']) {
+    const bad = spawnSync(process.execPath, [CLI, 'serve', port], { encoding: 'utf8', timeout: 5000 });
+    assert.equal(bad.status, 1, `serve ${JSON.stringify(port)}`);
+    assert.equal(bad.stderr, 'Usage: skill-atlas serve [port]\n');
+  }
 });
 
 test('skill-atlas serve on a port in use → a clear message, exit code 1', () => {
