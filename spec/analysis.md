@@ -24,9 +24,17 @@ Skill: id = `repo:path`, name, description, commit, its SKILL.md text
 JetBrains/koog, each at a fixed commit; its output must equal `e2e/expected/<repo>.txt`.
 `UPDATE_EXPECTED=1` stores the new output instead.
 ## Demo tests
-`npm run test:demo`: the [demo](../docs/demo/README.md) as Playwright tests, one per scene of `filter.mjs`:
+`npm run test:demo` (or `npm run e2e`): the [demo](../docs/demo/README.md) as Playwright tests, one per scene of `filter.mjs`:
 the real CLI in a real terminal (ttyd) and the real web view, in Google Chrome; each checks what its scene shows.
 - The demo's stage, `docs/demo/stage.mjs`: the same **data** (`./fixture`), **viewport** (1280×720) and **fonts**
   (DejaVu, from npm at a fixed version, the only fonts Chrome sees: `Arial` → DejaVu Sans)
+- The same **paths** on every machine: the terminal and the web view run in `/tmp/skill-atlas-stage`, its
+  `./skill-atlas` and `./fixture` link to the checkout (`file:///tmp/skill-atlas-stage/fixture/…`)
 - *Deterministic*: one test at a time, in order, never retried; it waits for a result, never for a time
 - **Every run recorded**: a video of each test, `test-results/<test>/video.webm`; in CI, the `demo-tests` artifact
+- **Screenshots** of the key moments, the end of each scene (`scan ./fixture mps` → `cli-scan-mps`), compared
+  *pixel for pixel* with the baselines, `tests/demo/screenshots/<moment>-linux.png`, made on Linux, like CI
+- *A changed pixel fails the check*: no tolerance; a test changes one pixel of the scanned fixture and expects
+  `1 pixels … are different`; in CI, the actual image and the diff in the `demo-tests` artifact
+- A missing baseline: written here, a failure in CI (`CI` set); `npx playwright test --update-snapshots` makes
+  them all again, on purpose, on Linux

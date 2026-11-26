@@ -8,7 +8,7 @@ import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
-import { browserEnv, contextOptions, root, serve, size, ttyd, ttyUrl, webUrl } from './stage.mjs';
+import { browserArgs, browserEnv, contextOptions, root, serve, size, stage, ttyd, ttyUrl, webUrl } from './stage.mjs';
 
 export { fixture, root, webUrl } from './stage.mjs';
 
@@ -26,7 +26,7 @@ export async function record(name, scenes) {
   const videos = mkdtempSync(join(tmpdir(), 'skill-atlas-demo-'));
   const children = [];
   const start = (cmd, args, env = {}) =>
-    children.push(spawn(cmd, args, { cwd: root, env: { ...process.env, ...env }, stdio: 'ignore' }));
+    children.push(spawn(cmd, args, { cwd: stage, env: { ...process.env, ...env }, stdio: 'ignore' }));
   let browser;
   try {
     start(ttyd.command, ttyd.args, ttyd.env);
@@ -34,7 +34,7 @@ export async function record(name, scenes) {
     await until(ttyUrl);
     await until(webUrl);
 
-    browser = await chromium.launch({ channel: 'chrome', env: { ...process.env, ...browserEnv } });
+    browser = await chromium.launch({ channel: 'chrome', args: browserArgs, env: { ...process.env, ...browserEnv } });
     const context = await browser.newContext({ ...contextOptions, recordVideo: { dir: videos, size } });
     const page = await context.newPage();
     const wait = (ms) => page.waitForTimeout(ms);
@@ -49,7 +49,7 @@ export async function record(name, scenes) {
           <div style="font-size:44px;font-weight:600">${title}</div><div style="color:#959ca5">${line}</div></body>`);
         await wait(2200);
       },
-      // Opens the terminal, in the checkout, ready for run().
+      // Opens the terminal, in the stage, ready for run().
       async terminal() {
         await page.goto(ttyUrl);
         await page.waitForSelector('.xterm-helper-textarea');
