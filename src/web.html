@@ -21,8 +21,12 @@
   main { display: grid; grid-template-columns: minmax(260px, 380px) 1fr; gap: 16px; padding: 0 24px 24px; }
   main[hidden] { display: none; }
   #skills { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; align-self: start; }
-  #skills li { padding: 10px 14px; border-top: 1px solid var(--border); cursor: pointer; }
-  #skills li:first-child { border-top: 0; }
+  #list { display: flex; flex-direction: column; gap: 8px; align-self: start; min-width: 0; }
+  #empty { margin: 0; color: var(--muted); }
+  #skills[hidden] { display: none; }
+  #skills li { padding: 10px 14px; cursor: pointer; }
+  /* A line between the skills shown, whichever the filter hides. */
+  #skills li:not([hidden]) ~ li { border-top: 1px solid var(--border); }
   #skills li[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 3px 0 var(--accent); }
   #skills li:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .name { font-weight: 600; }
@@ -48,7 +52,11 @@
   <ul id="warnings"></ul>
 </header>
 <main id="result" hidden>
-  <ul id="skills" role="listbox" aria-label="Skills"></ul>
+  <section id="list">
+    <input id="filter" type="search" placeholder="Filter by words in the name or the description" aria-label="Filter the skills" aria-controls="skills">
+    <p id="empty" hidden></p>
+    <ul id="skills" role="listbox" aria-label="Skills"></ul>
+  </section>
   <article id="skill" aria-live="polite"></article>
 </main>
 <script>
@@ -57,10 +65,50 @@ const el = (tag, props = {}, ...children) => append(Object.assign(document.creat
 function append(node, children) { for (const child of children) if (child != null) node.append(child); return node; }
 const firstSentence = (text) => { const line = text.replace(/\s+/g, ' ').trim(); return /^.*?[.!?](?=\s|$)/.exec(line)?.[0] ?? line; };
 let skills = [];
+let repositoryId = '';
+let selected = -1;
+/** The last repository asked for, kept in the address with the filter. */
+let current = '';
+
+const filterWords = () => $('filter').value.split(/\s+/).filter(Boolean);
+/** The CLI's rule: every word is in the name or the description, case-insensitive, as a substring. */
+const matches = (skill, words) => { const text = `${skill.name}\n${skill.description}`.toLowerCase(); return words.every((word) => text.includes(word.toLowerCase())); };
+const count = (n) => `${n} ${n === 1 ? 'skill' : 'skills'}`;
+
+function updateAddress() {
+  const params = new URLSearchParams();
+  if (current) params.set('repository', current);
+  if ($('filter').value.trim()) params.set('filter', $('filter').value.trim());
+  history.replaceState(null, '', `?${params}`);
+}
+
+/** Shows only the skills that match the filter, over the last scan: no new request. */
+function applyFilter() {
+  const words = filterWords();
+  const items = [...$('skills').children];
+  let shown = 0;
+  for (const [i, item] of items.entries()) {
+    item.hidden = !matches(skills[i], words);
+    if (!item.hidden) shown++;
+  }
+  $('status').textContent = `${repositoryId} · ${words.length ? `${shown} of ${count(skills.length)}` : count(skills.length)}`;
+  $('skills').hidden = shown === 0;
+  $('empty').hidden = shown > 0;
+  $('empty').textContent = shown > 0 ? '' : `no skills match "${words.join(' ')}"`;
+  // The selected skill stays shown only while it matches.
+  if (selected >= 0 && items[selected].hidden) select(-1);
+}
+
+function select(index) {
+  selected = index;
+  for (const [i, item] of [...$('skills').children].entries()) item.setAttribute('aria-selected', String(i === index));
+  $('skill').hidden = index < 0;
+  if (index < 0) $('skill').replaceChildren();
+  else show(index);
+}
 
 function show(index) {
   const skill = skills[index];
-  for (const [i, item] of [...$('skills').children].entries()) item.setAttribute('aria-selected', String(i === index));
   $('skill').replaceChildren(
     el('h2', { textContent: skill.name }),
     skill.description ? el('p', { className: 'meta', textContent: skill.description }) : null,
@@ -82,21 +130,27 @@ async function scanRepository(repository) {
     const body = await response.json();
     if (!response.ok) throw new Error(body.error);
     skills = body.skills;
-    $('status').textContent = `${body.repository.id} · ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`;
+    repositoryId = body.repository.id;
     $('warnings').replaceChildren(...body.warnings.map((warning) => el('li', { textContent: `warning: ${warning}` })));
     $('skills').replaceChildren(...skills.map((skill, index) => {
-      const item = el('li', { role: 'option', tabIndex: 0, onclick: () => show(index), onkeydown: (event) => {
-        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); show(index); }
-        if (event.key === 'ArrowDown') item.nextElementSibling?.focus();
-        if (event.key === 'ArrowUp') item.previousElementSibling?.focus();
+      // The arrows skip the skills the filter hides.
+      const next = (step) => { let other = item; do other = step > 0 ? other.nextElementSibling : other.previousElementSibling; while (other?.hidden); other?.focus(); };
+      const item = el('li', { role: 'option', tabIndex: 0, onclick: () => select(index), onkeydown: (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(index); }
+        if (event.key === 'ArrowDown') next(1);
+        if (event.key === 'ArrowUp') next(-1);
       } },
         el('div', { className: 'name', textContent: skill.name }, skill.product ? el('span', { className: 'badge', textContent: 'product' }) : null,
           skill.copies.length ? el('span', { className: 'badge', textContent: `+${skill.copies.length} ${skill.copies.length === 1 ? 'copy' : 'copies'}` }) : null),
         skill.description ? el('div', { className: 'description', textContent: firstSentence(skill.description) }) : null);
       return item;
     }));
+    selected = -1;
+    applyFilter();
     $('result').hidden = skills.length === 0;
-    if (skills.length) show(0);
+    // The first skill the filter shows, if any.
+    const first = [...$('skills').children].findIndex((item) => !item.hidden);
+    select(first);
   } catch (error) {
     $('status').className = 'error';
     $('status').textContent = error.message;
@@ -108,11 +162,15 @@ async function scanRepository(repository) {
 $('form').addEventListener('submit', (event) => {
   event.preventDefault();
   const repository = $('repository').value.trim();
-  history.replaceState(null, '', `?repository=${encodeURIComponent(repository)}`);
+  current = repository;
+  updateAddress();
   scanRepository(repository);
 });
-const initial = new URLSearchParams(location.search).get('repository');
-if (initial) { $('repository').value = initial; scanRepository(initial); }
+$('filter').addEventListener('input', () => { applyFilter(); updateAddress(); });
+const params = new URLSearchParams(location.search);
+$('filter').value = params.get('filter') ?? '';
+const initial = params.get('repository');
+if (initial) { current = initial; $('repository').value = initial; scanRepository(initial); }
 </script>
 </body>
 </html>

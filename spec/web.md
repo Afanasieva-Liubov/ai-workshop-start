@@ -9,9 +9,15 @@ and runs until stopped. *Nothing is stored*.
   **SKILL.md** as it is in the repository
 - Warnings under the field; an error → its clear message in place of the result
 - `?repository=<link>` in the address scans it on load
+## Filter
+- A **filter field** above the skills; it filters as you type, *with no new scan*
+- The same rule as the [CLI](cli.md#filter): every word, in the name or the description, case-insensitive
+- The count shows `<n> of <total> skills`; no match → `no skills match "<words>"`
+- `?filter=<words>` in the address fills it on load (with `?repository=`); typing updates the address
+- The selected skill stays shown only while it matches
 ## Server
 - Listens on `127.0.0.1` only; a request whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>` → `403`
 - `GET /api/scan?repository=<link>` → the scan as JSON: `repository`, `skills` (each with its `link` and
-  `text`, the SKILL.md), `warnings`
+  `text`, the SKILL.md), `warnings`; *never filtered*: the page filters it
 - An empty field or an unreachable repository → `400` with `{ "error": <the CLI's message> }`
 - A bad port (not only digits, or above 65535) → the usage, exit code 1; a port in use → a clear message, exit code 1
