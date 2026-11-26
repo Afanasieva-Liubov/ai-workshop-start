@@ -23,3 +23,10 @@ Skill: id = `repo:path`, name, description, commit, its SKILL.md text
 `npm run test:e2e`, with `GITHUB_TOKEN`: the real CLI on JetBrains/MPS, JetBrains/android and
 JetBrains/koog, each at a fixed commit; its output must equal `e2e/expected/<repo>.txt`.
 `UPDATE_EXPECTED=1` stores the new output instead.
+## Demo tests
+`npm run test:demo`: the [demo](../docs/demo/README.md) as Playwright tests, one per scene of `filter.mjs`:
+the real CLI in a real terminal (ttyd) and the real web view, in Google Chrome; each checks what its scene shows.
+- The demo's stage, `docs/demo/stage.mjs`: the same **data** (`./fixture`), **viewport** (1280×720) and **fonts**
+  (DejaVu, from npm at a fixed version, the only fonts Chrome sees: `Arial` → DejaVu Sans)
+- *Deterministic*: one test at a time, in order, never retried; it waits for a result, never for a time
+- **Every run recorded**: a video of each test, `test-results/<test>/video.webm`; in CI, the `demo-tests` artifact
