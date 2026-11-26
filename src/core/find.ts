@@ -6,7 +6,7 @@ export const SKILL_ROOTS = ['.agents/skills', '.claude/skills', '.github/skills'
 
 /** A folder of the project's own tests: `test`, `testData`, `fixtures`, a source set such as `jvmTest`. */
 const TEST_FOLDER = /^(?:tests?|test-?data|testdata|fixtures?|__tests__|__fixtures__)$/i;
-const TEST_SOURCE_SET = /^[a-z]+Test$/;
+const TEST_SOURCE_SET = /^[a-z][a-zA-Z0-9]*Test$/; // jvmTest, androidUnitTest, iosX64Test
 
 /**
  * Every file named exactly SKILL.md, named after its directory (a SKILL.md at the
@@ -25,8 +25,9 @@ export function findSkills(paths: string[], repositoryName: string): SkillFile[]
     });
 }
 
+/** Under a test folder; the skill's own directory is its name, not where it lives (`.claude/skills/tests`). */
 function isTestData(path: string): boolean {
-  return path.split('/').slice(0, -1).some((segment) => TEST_FOLDER.test(segment) || TEST_SOURCE_SET.test(segment));
+  return path.split('/').slice(0, -2).some((segment) => TEST_FOLDER.test(segment) || TEST_SOURCE_SET.test(segment));
 }
 
 /** The preferred copy among identical ones: by the order of SKILL_ROOTS, then elsewhere, then by path. */

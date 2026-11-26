@@ -149,6 +149,20 @@ test('duplicates: different files with the same name → separate skills', async
   );
 });
 
+test('duplicates: identical files of different names → separate skills', async () => {
+  const result = await scanEdges({
+    '.agents/skills/alpha/SKILL.md': '# TODO\n',
+    '.agents/skills/beta/SKILL.md': '# TODO\n',
+  });
+  assert.deepEqual(
+    result.skills.map((s) => [s.name, s.copies]),
+    [
+      ['alpha', []],
+      ['beta', []],
+    ],
+  );
+});
+
 test('an unusual folder: agent/skills → a skill like any other', async () => {
   const result = await scanEdges({ 'agent/skills/writing-lint-checks/SKILL.md': skill('writing-lint-checks') });
   assert.deepEqual(
@@ -174,9 +188,16 @@ test('test data: a SKILL.md among the tests → not a skill, skipped without a w
     'core/src/test/resources/skills/a/SKILL.md': skill('a'),
     'core/testData/skills/b/SKILL.md': skill('b'),
     'docs/fixtures/skills/c/SKILL.md': skill('c'),
+    'lib/src/androidUnitTest/resources/skills/d/SKILL.md': skill('d'),
+    'lib/src/iosX64Test/resources/skills/e/SKILL.md': skill('e'),
     'latest/skills/kept/SKILL.md': skill('kept'),
+    '.claude/skills/tests/SKILL.md': skill('tests'),
+    '.agents/skills/loadTest/SKILL.md': skill('loadTest'),
   });
-  assert.deepEqual(result.skills.map((s) => s.path), ['latest/skills/kept/SKILL.md']);
+  assert.deepEqual(
+    result.skills.map((s) => s.path),
+    ['latest/skills/kept/SKILL.md', '.agents/skills/loadTest/SKILL.md', '.claude/skills/tests/SKILL.md'],
+  );
   assert.deepEqual(result.warnings, []);
   assert.doesNotMatch(fixture.stdout, /weather-retrieval/);
 });

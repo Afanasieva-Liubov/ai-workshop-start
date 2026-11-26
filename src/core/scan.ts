@@ -21,7 +21,7 @@ export async function scan(source: Source): Promise<ScanResult> {
   // The files are read at the same time: on GitHub, each one is a request.
   const read = await Promise.all(files.map(async (file) => ({ file, bytes: await source.read(file.path) })));
   const warnings = [...source.warnings];
-  // Identical files are one skill: the preferred one, with the others as its copies.
+  // Identical files of the same name are one skill: the preferred one, with the others as its copies.
   const groups = new Map<string, { file: SkillFile; text: string }[]>();
   for (const { file, bytes } of read) {
     if (!bytes) {
@@ -29,7 +29,8 @@ export async function scan(source: Source): Promise<ScanResult> {
       continue;
     }
     const text = new TextDecoder().decode(bytes);
-    groups.set(text, [...(groups.get(text) ?? []), { file, text }]);
+    const key = `${parseSkill(text).name ?? file.name}\n${text}`;
+    groups.set(key, [...(groups.get(key) ?? []), { file, text }]);
   }
   const skills: Skill[] = [];
   for (const group of groups.values()) {
