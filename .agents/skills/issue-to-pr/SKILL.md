@@ -1,15 +1,17 @@
 ---
 name: issue-to-pr
-description: Implement a GitHub issue of this repository with its spec and integration tests, and open a pull request for it. Use when asked to implement, fix or pick up an issue, or when an automation hands you one.
+description: Implement a GitHub issue of this repository with its spec and integration tests, and open a pull request for it. Use when an issue is labeled "Delegated to AI", or when asked to implement, fix or pick up an issue.
 ---
 
 # Issue to pull request
 
 ## The issue
-- Given a number or a link: `gh issue view <n> --comments`.
-- Given none: the oldest open issue with no linked pull request and no assignee
-  (`gh issue list --state open --search "no:assignee -linked:pr sort:created-asc" --limit 1`).
+Usually an automation starts you when an issue is labeled **Delegated to AI**; that issue is the one.
+- Given a number or a link (or the trigger's issue): `gh issue view <n> --comments`.
+- Given none: the oldest open issue labeled `Delegated to AI` with no linked pull request
+  (`gh issue list --state open --label "Delegated to AI" --search "-linked:pr sort:created-asc" --limit 1`).
   None → stop and say so; do not invent work.
+- Not labeled `Delegated to AI`, closed, or already has an open PR → stop: it is not yours, or it is done.
 - Unclear, or asks for something the [spec](../../../spec/) contradicts → do not guess: comment
   on the issue with the question (`gh issue comment`) and stop.
 
@@ -41,4 +43,5 @@ Stay in scope: no unrelated refactors or drive-by fixes; note them in the PR ins
   - **Body**: `Closes #<n>`; a few sentences on what and why; the spec cases added or changed;
     the tests that cover them; how to check it by hand (a `./skill-atlas` command and its output).
 - Watch CI (`gh pr checks --watch`). Red → fix it on the branch; a PR is ready only when green.
+- Comment on the issue with the PR link (`gh issue comment <n> --body "<pr url>"`).
 - Do not merge.
