@@ -163,3 +163,98 @@ test('skill-atlas serve on a port in use → a clear message, exit code 1', () =
   assert.equal(busy.status, 1);
   assert.equal(busy.stderr, `Port ${port} is in use; try another: skill-atlas serve <port>\n`);
 });
+
+// spec/web.md, Filter: on the page, over the skills already scanned.
+/** The page at `?<query>`, once the scan has finished, counting its requests to /api/scan. */
+async function filterPage(query: string) {
+  const scans: string[] = [];
+  const dom = await JSDOM.fromURL(`${url}?${query}`, {
+    runScripts: 'dangerously',
+    beforeParse: (window) =>
+      Object.assign(window, {
+        fetch: (path: string) => {
+          if (path.startsWith('/api/scan')) scans.push(path);
+          return fetch(new URL(path, url));
+        },
+      }),
+  });
+  const document = dom.window.document;
+  const button = document.getElementById('scan') as HTMLButtonElement;
+  for (let i = 0; i < 200 && (button.disabled || !document.getElementById('status')!.textContent); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  after(() => dom.window.close());
+  const filter = document.getElementById('filter') as HTMLInputElement;
+  return {
+    window: dom.window,
+    document,
+    scans,
+    filter,
+    type(text: string) {
+      filter.value = text;
+      filter.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    },
+    status: () => document.getElementById('status')!.textContent,
+    names: () => [...document.querySelectorAll('#skills li:not([hidden]) .name')].map((name) => name.firstChild!.textContent),
+    shown: () => (document.getElementById('skill')!.hidden ? null : document.querySelector('#skill h2')?.textContent ?? null),
+    empty: () => {
+      const empty = document.getElementById('empty')!;
+      return empty.hidden ? null : empty.textContent;
+    },
+  };
+}
+
+test('the page: a filter field above the skills; typing filters the list and the count, with no new scan', async () => {
+  const view = await filterPage(`repository=${encodeURIComponent(FIXTURE)}`);
+  assert.equal(view.filter.getAttribute('aria-label'), 'Filter the skills');
+  assert.ok(view.filter.compareDocumentPosition(view.document.getElementById('skills')!) & view.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.equal(view.status(), 'fixture · 6 skills');
+  assert.equal(view.names().length, 6);
+  view.type('MPS');
+  assert.deepEqual(view.names(), ['mps-aspect-generator', 'mps-tests']);
+  assert.equal(view.status(), 'fixture · 2 of 6 skills');
+  view.type('repository commit');
+  assert.deepEqual(view.names(), ['commits']);
+  view.type('kotlin');
+  assert.deepEqual(view.names(), ['code-style']);
+  view.type('');
+  assert.equal(view.names().length, 6);
+  assert.equal(view.status(), 'fixture · 6 skills');
+  assert.deepEqual(view.scans, [`/api/scan?repository=${encodeURIComponent(FIXTURE)}`]);
+});
+
+test('the page: typing updates the address; the selected skill stays shown only while it matches', async () => {
+  const view = await filterPage(`repository=${encodeURIComponent(FIXTURE)}`);
+  assert.equal(view.shown(), 'code-style');
+  view.type('style');
+  assert.equal(view.shown(), 'code-style');
+  const address = new URL(view.window.location.href).searchParams;
+  assert.equal(address.get('repository'), FIXTURE);
+  assert.equal(address.get('filter'), 'style');
+  view.type('mps');
+  assert.equal(view.shown(), null);
+  view.type('');
+  assert.equal(new URL(view.window.location.href).searchParams.get('filter'), null);
+});
+
+test('the page: ?filter=<words> fills the field on load and filters the scan', async () => {
+  const view = await filterPage(`repository=${encodeURIComponent(FIXTURE)}&filter=${encodeURIComponent('Test')}`);
+  assert.equal(view.filter.value, 'Test');
+  assert.deepEqual(view.names(), ['mps-tests']);
+  assert.equal(view.status(), 'fixture · 1 of 6 skills');
+  // The first match is shown, not a skill the filter hides.
+  assert.equal(view.shown(), 'mps-tests');
+  assert.equal(view.empty(), null);
+});
+
+test('the page: no match → no skills match "<words>"', async () => {
+  const view = await filterPage(`repository=${encodeURIComponent(FIXTURE)}`);
+  view.type('  no-such   skill ');
+  assert.deepEqual(view.names(), []);
+  assert.equal(view.status(), 'fixture · 0 of 6 skills');
+  assert.equal(view.empty(), 'no skills match "no-such skill"');
+  assert.equal(view.shown(), null);
+  view.type('lint');
+  assert.equal(view.empty(), null);
+  assert.deepEqual(view.names(), ['writing-lint-checks']);
+});

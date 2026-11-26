@@ -247,3 +247,60 @@ test('a fixed commit that does not exist → a clear message', async () => {
     'https://api.github.com/repos/JetBrains/large/commits/no-such-ref': { status: 404, body: { message: 'Not Found' } },
   }) }), { message: 'Not found in https://github.com/JetBrains/large: no-such-ref' });
 });
+
+// spec/cli.md, Filter: the words after the repository.
+const filtered = async (...words: string[]) => atlas(['scan', FIXTURE, ...words]);
+const names = (stdout: string) => stdout.split('\n').slice(1).filter((line) => !line.startsWith('  ')).map((line) => line.split(' — ')[0]);
+
+test('filter: one word → the skills whose name contains it, counted in the header', async () => {
+  const { code, stdout } = await filtered('test');
+  assert.equal(code, 0);
+  const root = pathToFileURL(FIXTURE).href;
+  assert.equal(
+    stdout,
+    [
+      'fixture · 1 of 6 skills',
+      'mps-tests — Run the MPS tests for the module you changed.',
+      `  ${root}/.agents/skills/mps-tests/SKILL.md`,
+      '  also in .claude/skills/mps-tests/SKILL.md',
+    ].join('\n'),
+  );
+});
+
+test('filter: two words → only the skills that contain both (AND), by name', async () => {
+  assert.deepEqual(names((await filtered('repository')).stdout), ['commits', 'writing-lint-checks']);
+  assert.deepEqual(names((await filtered('repository', 'commit')).stdout), ['commits']);
+  // Two words in one argument are two words too.
+  assert.deepEqual(names((await filtered('repository commit')).stdout), ['commits']);
+});
+
+test('filter: case-insensitive', async () => {
+  const { stdout } = await filtered('MPS');
+  assert.equal(stdout.split('\n')[0], 'fixture · 2 of 6 skills');
+  assert.deepEqual(names(stdout), ['mps-aspect-generator', 'mps-tests']);
+  assert.deepEqual(names((await filtered('Code-STYLE')).stdout), ['code-style']);
+});
+
+test('filter: a word in the description only, even past its first sentence', async () => {
+  assert.deepEqual(names((await filtered('kotlin')).stdout), ['code-style']);
+  assert.deepEqual(names((await filtered('push')).stdout), ['mps-tests']);
+});
+
+test('filter: no match → the header, then the message; exit code 0, warnings still on stderr', async () => {
+  const { code, stdout, stderr } = await filtered('no-such', 'skill');
+  assert.equal(code, 0);
+  assert.equal(stdout, ['fixture · 0 of 6 skills', 'no skills match "no-such skill"'].join('\n'));
+  assert.match(stderr, /^warning: \.agents\/skills\/release-checklist\/SKILL\.md: malformed front matter: /);
+});
+
+test('filter: from the real CLI', () => {
+  const scanned = spawnSync(process.execPath, [CLI, 'scan', FIXTURE, 'lint'], { encoding: 'utf8' });
+  assert.equal(scanned.status, 0, scanned.stderr);
+  assert.equal(scanned.stdout.split('\n')[0], 'fixture · 1 of 6 skills');
+});
+
+test('scan with no repository → the usage, with the words', async () => {
+  const { code, stderr } = await atlas(['scan']);
+  assert.equal(code, 1);
+  assert.equal(stderr, 'Usage: skill-atlas scan <GitHub URL | directory> [words…]');
+});
