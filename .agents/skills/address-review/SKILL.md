@@ -28,6 +28,8 @@ Collect what is not yet answered:
 
 A comment is answered if you (or the earlier session) already replied to it and nothing came after.
 
+Do not check minor problems.
+
 For each comment:
 - **Take it**: when you open the comment, reply in its thread that you are taking it (e.g. "Taking
   this one"), before you start work on it, so the reviewer knows it is being handled.
