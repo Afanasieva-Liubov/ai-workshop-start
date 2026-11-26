@@ -27,3 +27,8 @@ jobs:
         run: |
           ./skill-atlas help
           ./skill-atlas scan ./fixture
+      # The real CLI on real repositories at fixed commits, compared with e2e/expected.
+      - name: End-to-end tests
+        run: npm run test:e2e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
