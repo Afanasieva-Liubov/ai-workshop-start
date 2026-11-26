@@ -180,3 +180,41 @@ test('test data: a SKILL.md among the tests → not a skill, skipped without a w
   assert.deepEqual(result.warnings, []);
   assert.doesNotMatch(fixture.stdout, /weather-retrieval/);
 });
+
+// A tree too large for one answer: spec/analysis.md, "Details".
+const COMMIT = '1111111111111111111111111111111111111111';
+const blob = (path: string) => ({ path, mode: '100644', type: 'blob', sha: path });
+const dir = (path: string, sha: string) => ({ path, mode: '040000', type: 'tree', sha });
+
+/** What GitHub answers for JetBrains/large at COMMIT: a root tree too large to list at once. */
+const large = replay({
+  'https://api.github.com/repos/JetBrains/large': { status: 200, body: { full_name: 'JetBrains/large', default_branch: 'main' } },
+  'https://api.github.com/repos/JetBrains/large/commits/main': { status: 200, body: { sha: COMMIT } },
+  [`https://api.github.com/repos/JetBrains/large/git/trees/${COMMIT}?recursive=1`]: { status: 200, body: { truncated: true, tree: [] } },
+  [`https://api.github.com/repos/JetBrains/large/git/trees/${COMMIT}`]: {
+    status: 200,
+    body: { truncated: false, tree: [blob('SKILL.md'), dir('agent', 'agent-sha'), dir('plugins', 'plugins-sha')] },
+  },
+  'https://api.github.com/repos/JetBrains/large/git/trees/agent-sha?recursive=1': {
+    status: 200,
+    body: { truncated: false, tree: [dir('skills', 's'), blob('skills/writing-lint-checks/SKILL.md')] },
+  },
+  // Still too large: one level further down.
+  'https://api.github.com/repos/JetBrains/large/git/trees/plugins-sha?recursive=1': { status: 200, body: { truncated: true, tree: [] } },
+  'https://api.github.com/repos/JetBrains/large/git/trees/plugins-sha': { status: 200, body: { truncated: false, tree: [dir('mcp', 'mcp-sha')] } },
+  'https://api.github.com/repos/JetBrains/large/git/trees/mcp-sha?recursive=1': {
+    status: 200,
+    body: { truncated: false, tree: [blob('resources/skills/mps-aspect-generator/SKILL.md')] },
+  },
+});
+
+test('a tree too large for one answer → listed directory by directory, whole, without a warning', async () => {
+  const source = await openGitHub('https://github.com/JetBrains/large', { fetch: large });
+  assert.equal(source.repository.commit, COMMIT);
+  assert.deepEqual(source.paths.sort(), [
+    'SKILL.md',
+    'agent/skills/writing-lint-checks/SKILL.md',
+    'plugins/mcp/resources/skills/mps-aspect-generator/SKILL.md',
+  ]);
+  assert.deepEqual(source.warnings, []);
+});
