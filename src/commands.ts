@@ -1,12 +1,15 @@
 // The skill-atlas commands. The same code serves the Node CLI and the browser
 // terminal: everything that differs between them comes in through the context.
 import { AtlasError } from './core/errors.ts';
+import { parseGitHubOwnerUrl, type Owner } from './core/github.ts';
 import { skillLink, type Repository, type Skill } from './core/model.ts';
 import { scan, type Source } from './core/scan.ts';
 
 export type Context = {
   /** Opens what the user asked to scan. */
   open(input: string): Promise<Source>;
+  /** Opens an organization or a user, `github.com/<owner>`, to scan each repository. The Node CLI only. */
+  openOwner?(input: string): Promise<Owner>;
   print(text: string): void;
   /** Errors and warnings. */
   error(text: string): void;
@@ -38,9 +41,44 @@ export async function run(args: string[], context: Context): Promise<number> {
 
 async function scanCommand(args: string[], context: Context) {
   if (args.length !== 1) throw new AtlasError('Usage: skill-atlas scan <GitHub URL | directory>');
+  if (context.openOwner && parseGitHubOwnerUrl(args[0])) return scanOwner(await context.openOwner(args[0]), context);
   const result = await scan(await context.open(args[0]));
   printRepository(result.repository, result.skills, context);
   for (const warning of result.warnings) context.error(`warning: ${warning}`);
+}
+
+/**
+ * Each repository with skills, as `scan` prints one, sorted by name; then the total. A repository
+ * that fails is a warning, and the scan goes on. Identical skills in different repositories stay apart.
+ */
+async function scanOwner(owner: Owner, context: Context) {
+  const results = await Promise.all(
+    owner.repositories.map(async (repository) => {
+      try {
+        return { id: repository.id, result: await scan(await repository.open()) };
+      } catch (error) {
+        if (!(error instanceof AtlasError)) throw error;
+        return { id: repository.id, error: error.message };
+      }
+    }),
+  );
+  let skills = 0;
+  let printed = 0;
+  for (const { id, result, error } of results) {
+    if (error !== undefined) context.error(`warning: ${id}: ${error}`);
+    if (!result) continue;
+    if (result.skills.length > 0) {
+      printRepository(result.repository, result.skills, context);
+      skills += result.skills.length;
+      printed++;
+    }
+    for (const warning of result.warnings) context.error(`warning: ${id}: ${warning}`);
+  }
+  context.print(`${owner.name} · ${count(skills, 'skill', 'skills')} in ${count(printed, 'repository', 'repositories')}`);
+}
+
+function count(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
 async function serveCommand(args: string[], context: Context) {
@@ -53,7 +91,7 @@ async function serveCommand(args: string[], context: Context) {
 
 /** `<owner>/<repo> · N skills`, then each skill's name, first sentence and link. */
 function printRepository(repository: Repository, skills: Skill[], { print }: Context) {
-  print(`${repository.id} · ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`);
+  print(`${repository.id} · ${count(skills.length, 'skill', 'skills')}`);
   for (const skill of skills) {
     print(skill.description ? `${skill.name} — ${firstSentence(skill.description)}` : skill.name);
     print(`  ${skillLink(repository, skill)}`);

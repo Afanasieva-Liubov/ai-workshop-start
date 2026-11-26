@@ -8,6 +8,7 @@ Core: fetch → find → parse. CLI and [web view](web.md): *thin clients*.
 Skill: id = `repo:path`, name, description, commit, its SKILL.md text
 ## Details
 - **GitHub API**, no clone; *under 5 s* for intellij-community
+- An organization → *under 60 s* for JetBrains, with GITHUB_TOKEN
 - A tree too large for one answer → listed directory by directory, never cut short
 - A fixed commit (`/tree/<commit>`) → listed through its tree: code search sees only the default branch
 - The name: front matter, else the directory

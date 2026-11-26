@@ -8,11 +8,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
-import { openGitHub } from '../src/core/github.ts';
+import { openGitHub, openOwner, parseGitHubOwnerUrl, parseGitHubUrl } from '../src/core/github.ts';
 import { parseSkill } from '../src/core/parse.ts';
 import { replay } from '../src/core/replay.ts';
 import { scan } from '../src/core/scan.ts';
-import { atlas, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
+import { run } from '../src/commands.ts';
+import { atlas, CLI, EXAMPLE_COMMIT, FIXTURE, open, OWNER_COMMIT, SHARED_SKILL, skillText } from './helpers.ts';
 
 const fixture = await atlas(['scan', FIXTURE]);
 const example = await atlas(['scan', 'github.com/JetBrains/example']);
@@ -246,4 +247,154 @@ test('a fixed commit that does not exist → a clear message', async () => {
     'https://api.github.com/repos/JetBrains/large': { status: 200, body: { full_name: 'JetBrains/large', default_branch: 'main' } },
     'https://api.github.com/repos/JetBrains/large/commits/no-such-ref': { status: 404, body: { message: 'Not Found' } },
   }) }), { message: 'Not found in https://github.com/JetBrains/large: no-such-ref' });
+});
+
+// An organization or a user, github.com/<owner>: spec/cli.md and spec/analysis.md.
+const organization = await atlas(['scan', 'github.com/JetBrains-example']);
+const ownerLink = (repo: string, path: string) => `https://github.com/JetBrains-example/${repo}/blob/${OWNER_COMMIT}/${path}`;
+
+test('an organization: one section per repository with skills, sorted by name, then the total', () => {
+  assert.equal(organization.code, 0, organization.stderr);
+  assert.equal(
+    organization.stdout,
+    [
+      'JetBrains-example/alpha · 2 skills',
+      'deploy — Deploy the service.',
+      `  ${ownerLink('alpha', '.agents/skills/deploy/SKILL.md')}`,
+      'shared — The same skill in two repositories.',
+      `  ${ownerLink('alpha', '.agents/skills/shared/SKILL.md')}`,
+      'JetBrains-example/beta · 1 skill',
+      'shared — The same skill in two repositories.',
+      `  ${ownerLink('beta', '.claude/skills/shared/SKILL.md')}`,
+      'JetBrains-example · 3 skills in 2 repositories',
+    ].join('\n'),
+  );
+});
+
+test('an organization: forks, archived repositories and repositories without skills are not printed', () => {
+  assert.doesNotMatch(organization.stdout, /JetBrains-example\/(?:old|forked|empty)|legacy|borrowed/);
+  // Not even asked for: a request for them is not recorded, and would be a warning.
+  assert.doesNotMatch(organization.stderr, /old|forked|empty/);
+});
+
+test('an organization: a repository that fails → a warning on stderr, the scan goes on, exit code 0', () => {
+  assert.equal(organization.code, 0);
+  assert.equal(
+    organization.stderr,
+    'warning: JetBrains-example/broken: GitHub answered 500 for https://api.github.com/repos/JetBrains-example/broken: Server Error',
+  );
+});
+
+test('an organization: identical skills in different repositories stay separate, no `also in`', () => {
+  assert.equal(organization.stdout.match(/^shared — /gm)?.length, 2);
+  assert.doesNotMatch(organization.stdout, /also in/);
+});
+
+test('github.com/<owner>: the same scheme, www. and trailing slash rules as a repository URL', () => {
+  for (const input of ['github.com/JetBrains-example', 'https://github.com/JetBrains-example/', 'http://www.github.com/JetBrains-example']) {
+    assert.deepEqual(parseGitHubOwnerUrl(input), { owner: 'JetBrains-example' }, input);
+    assert.equal(parseGitHubUrl(input), undefined, input);
+  }
+  assert.equal(parseGitHubOwnerUrl('github.com/JetBrains/example'), undefined);
+  assert.equal(parseGitHubOwnerUrl('gitlab.com/JetBrains'), undefined);
+});
+
+test('a user: listed through /users/<user>/repos, page after page until one has fewer than 100', async () => {
+  const id = (n: number) => `someone/repo-${String(n).padStart(3, '0')}`;
+  // 100 forks on the first page; the one repository of their own is on the second.
+  const forks = Array.from({ length: 100 }, (_, n) => ({ full_name: id(n), fork: true, archived: false }));
+  const user = await atlas(['scan', 'https://github.com/someone/'], {
+    'https://api.github.com/users/someone': { status: 200, body: { login: 'someone', type: 'User' } },
+    'https://api.github.com/users/someone/repos?type=owner&per_page=100&page=1': { status: 200, body: forks },
+    'https://api.github.com/users/someone/repos?type=owner&per_page=100&page=2': {
+      status: 200,
+      body: [{ full_name: 'someone/notes', fork: false, archived: false }],
+    },
+    'https://api.github.com/search/code?q=filename:SKILL.md+user:someone&per_page=100&page=1': {
+      status: 200,
+      body: { total_count: 2, items: [{ path: 'SKILL.md', repository: { full_name: 'someone/notes' } }, { path: 'SKILL.md', repository: { full_name: id(0) } }] },
+    },
+    'https://api.github.com/repos/someone/notes': { status: 200, body: { full_name: 'someone/notes', default_branch: 'main' } },
+    'https://api.github.com/repos/someone/notes/commits/main': { status: 200, body: { sha: OWNER_COMMIT } },
+    [`https://raw.githubusercontent.com/someone/notes/${OWNER_COMMIT}/SKILL.md`]: { status: 200, body: skillText('notes') },
+  });
+  assert.equal(user.code, 0, user.stderr);
+  assert.equal(
+    user.stdout,
+    [
+      'someone/notes · 1 skill',
+      'notes — The notes skill.',
+      `  https://github.com/someone/notes/blob/${OWNER_COMMIT}/SKILL.md`,
+      'someone · 1 skill in 1 repository',
+    ].join('\n'),
+  );
+  assert.equal(user.stderr, '');
+});
+
+test('without a token: each repository of the organization through its tree, no code search', async () => {
+  const tree = (paths: string[]) => ({ status: 200, body: { truncated: false, tree: paths.map((path) => ({ path, mode: '100644', type: 'blob', sha: path })) } });
+  const raw = (repo: string, path: string) => `https://raw.githubusercontent.com/JetBrains-example/${repo}/${OWNER_COMMIT}/${path}`;
+  const repository = (name: string) => ({
+    [`https://api.github.com/repos/JetBrains-example/${name}`]: { status: 200, body: { full_name: `JetBrains-example/${name}`, default_branch: 'main' } },
+    [`https://api.github.com/repos/JetBrains-example/${name}/commits/main`]: { status: 200, body: { sha: OWNER_COMMIT } },
+  });
+  const fetch = replay({
+    'https://api.github.com/users/JetBrains-example': { status: 200, body: { login: 'JetBrains-example', type: 'Organization' } },
+    'https://api.github.com/orgs/JetBrains-example/repos?type=all&per_page=100&page=1': {
+      status: 200,
+      body: [
+        { full_name: 'JetBrains-example/beta', fork: false, archived: false },
+        { full_name: 'JetBrains-example/alpha', fork: false, archived: false },
+        { full_name: 'JetBrains-example/old', fork: false, archived: true },
+      ],
+    },
+    ...repository('alpha'),
+    ...repository('beta'),
+    [`https://api.github.com/repos/JetBrains-example/alpha/git/trees/${OWNER_COMMIT}?recursive=1`]: tree(['README.md', '.agents/skills/shared/SKILL.md']),
+    [`https://api.github.com/repos/JetBrains-example/beta/git/trees/${OWNER_COMMIT}?recursive=1`]: tree(['README.md']),
+    [raw('alpha', '.agents/skills/shared/SKILL.md')]: { status: 200, body: SHARED_SKILL },
+  });
+  const owner = await openOwner('github.com/JetBrains-example', { fetch });
+  assert.equal(owner.name, 'JetBrains-example');
+  assert.deepEqual(owner.repositories.map((r) => r.id), ['JetBrains-example/alpha', 'JetBrains-example/beta']);
+  const results = await Promise.all(owner.repositories.map(async (r) => scan(await r.open())));
+  assert.deepEqual(results.map((r) => [r.repository.id, r.skills.map((s) => s.path)]), [
+    ['JetBrains-example/alpha', ['.agents/skills/shared/SKILL.md']],
+    ['JetBrains-example/beta', []],
+  ]);
+});
+
+test('an organization or a user that does not exist → a clear message, exit code 1', async () => {
+  const missing = await atlas(['scan', 'github.com/no-such-owner'], {
+    'https://api.github.com/users/no-such-owner': { status: 404, body: { message: 'Not Found' } },
+  });
+  assert.equal(missing.code, 1);
+  assert.equal(missing.stdout, '');
+  assert.equal(missing.stderr, 'Organization or user not found: https://github.com/no-such-owner');
+});
+
+test('rate limit on the repository list → the rate-limit message, exit code 1', async () => {
+  const limited = await atlas(['scan', 'github.com/busy'], {
+    'https://api.github.com/users/busy': { status: 200, body: { login: 'busy', type: 'Organization' } },
+    'https://api.github.com/orgs/busy/repos?type=all&per_page=100&page=1': {
+      status: 403,
+      body: { message: 'API rate limit exceeded for user ID 1.' },
+    },
+  });
+  assert.equal(limited.code, 1);
+  assert.equal(limited.stdout, '');
+  assert.equal(limited.stderr, 'GitHub rate limit reached; try again in a minute');
+});
+
+test('a repository URL and a directory print exactly what they did before, with organizations supported', async () => {
+  // The same commands with no way to open an organization: the output does not change.
+  const without = async (args: string[]) => {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    const code = await run(args, { open: (input) => open(input), print: (t) => stdout.push(t), error: (t) => stderr.push(t) });
+    return { code, stdout: stdout.join('\n'), stderr: stderr.join('\n') };
+  };
+  assert.deepEqual(await without(['scan', 'github.com/JetBrains/example']), example);
+  assert.deepEqual(await without(['scan', FIXTURE]), fixture);
+  assert.doesNotMatch(example.stdout + fixture.stdout, / in \d+ repositor/);
 });
