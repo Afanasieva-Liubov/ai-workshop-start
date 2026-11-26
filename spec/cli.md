@@ -1,6 +1,7 @@
 # Command line
 `./skill-atlas scan <GitHub URL | directory>`
 Prints the result **at once**; *nothing is stored*.
+`github.com/<owner>/<repo>/tree/<commit | branch | tag>` scans that commit instead of the default branch.
 `GITHUB_TOKEN`, optional: a higher GitHub rate limit.
 ## Output
 ```

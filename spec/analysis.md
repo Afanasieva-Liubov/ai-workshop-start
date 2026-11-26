@@ -9,6 +9,7 @@ Skill: id = `repo:path`, name, description, commit
 ## Details
 - **GitHub API**, no clone; *under 5 s* for intellij-community
 - A tree too large for one answer → listed directory by directory, never cut short
+- A fixed commit (`/tree/<commit>`) → listed through its tree: code search sees only the default branch
 - The name: front matter, else the directory
 - The link pins the *scanned commit*
 - Malformed front matter → a *warning*, the scan goes on

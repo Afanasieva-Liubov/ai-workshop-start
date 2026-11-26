@@ -181,7 +181,7 @@ test('test data: a SKILL.md among the tests → not a skill, skipped without a w
   assert.doesNotMatch(fixture.stdout, /weather-retrieval/);
 });
 
-// A tree too large for one answer: spec/analysis.md, "Details".
+// A fixed commit, and a tree too large for one answer: spec/analysis.md, "Details".
 const COMMIT = '1111111111111111111111111111111111111111';
 const blob = (path: string) => ({ path, mode: '100644', type: 'blob', sha: path });
 const dir = (path: string, sha: string) => ({ path, mode: '040000', type: 'tree', sha });
@@ -189,7 +189,7 @@ const dir = (path: string, sha: string) => ({ path, mode: '040000', type: 'tree'
 /** What GitHub answers for JetBrains/large at COMMIT: a root tree too large to list at once. */
 const large = replay({
   'https://api.github.com/repos/JetBrains/large': { status: 200, body: { full_name: 'JetBrains/large', default_branch: 'main' } },
-  'https://api.github.com/repos/JetBrains/large/commits/main': { status: 200, body: { sha: COMMIT } },
+  [`https://api.github.com/repos/JetBrains/large/commits/${COMMIT}`]: { status: 200, body: { sha: COMMIT } },
   [`https://api.github.com/repos/JetBrains/large/git/trees/${COMMIT}?recursive=1`]: { status: 200, body: { truncated: true, tree: [] } },
   [`https://api.github.com/repos/JetBrains/large/git/trees/${COMMIT}`]: {
     status: 200,
@@ -208,8 +208,9 @@ const large = replay({
   },
 });
 
-test('a tree too large for one answer → listed directory by directory, whole, without a warning', async () => {
-  const source = await openGitHub('https://github.com/JetBrains/large', { fetch: large });
+test('a fixed commit: /tree/<commit> scans that commit through its tree, even with a token; a large tree is walked whole', async () => {
+  // With a token, as the CLI runs it: code search is not recorded, so using it would fail.
+  const source = await openGitHub(`https://github.com/JetBrains/large/tree/${COMMIT}`, { fetch: large, token: 'test' });
   assert.equal(source.repository.commit, COMMIT);
   assert.deepEqual(source.paths.sort(), [
     'SKILL.md',
@@ -217,4 +218,11 @@ test('a tree too large for one answer → listed directory by directory, whole, 
     'plugins/mcp/resources/skills/mps-aspect-generator/SKILL.md',
   ]);
   assert.deepEqual(source.warnings, []);
+});
+
+test('a fixed commit that does not exist → a clear message', async () => {
+  await assert.rejects(openGitHub('github.com/JetBrains/large/tree/no-such-ref', { fetch: replay({
+    'https://api.github.com/repos/JetBrains/large': { status: 200, body: { full_name: 'JetBrains/large', default_branch: 'main' } },
+    'https://api.github.com/repos/JetBrains/large/commits/no-such-ref': { status: 404, body: { message: 'Not Found' } },
+  }) }), { message: 'Not found in https://github.com/JetBrains/large: no-such-ref' });
 });
