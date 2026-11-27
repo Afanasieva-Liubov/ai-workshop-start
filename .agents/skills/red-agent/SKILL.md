@@ -121,7 +121,11 @@ $ node /tmp/red-agent/<bug>.mjs /tmp/red-agent/<bug>.mp4
 ```
 Always with the path: without it the video lands in `docs/demo/`.
 
-- The recorder runs its own `./skill-atlas serve` on 4173: stop yours first.
+- The recorder runs its own `./skill-atlas serve` on 4173: stop yours first. It runs it in
+  `/tmp/skill-atlas-stage` ([docs/demo/stage.mjs](../../../docs/demo/stage.mjs)), not in the checkout, so a
+  relative path (`.`, `..`, `fixture`) scans from there. In a video, type absolute paths only. A bug that
+  needs a relative path → the issue's step 2 is `node -e "import('./docs/demo/stage.mjs')"`, then
+  `cd /tmp/skill-atlas-stage && ./skill-atlas serve`, so that the steps and the video scan the same thing.
 - A bug of the server: `terminal()`, then the `curl -i` command and its answer, typed with `run()`.
 - **A step that fails is the bug**: an error inside `record()` ends it with no video. A step that may
   throw (a page of a server that has stopped) → `await web().catch(() => {});`, then the pause.
@@ -144,7 +148,7 @@ Found by the red agent on `<branch>` at `<commit>`.
 
 ## Steps
 1. <the shell lines that make the repository, if any>
-2. `./skill-atlas serve` in the root of the checkout
+2. `./skill-atlas serve` in the root of the checkout (a relative path in the bug → in `/tmp/skill-atlas-stage`, as under **The video**)
 3. Open http://127.0.0.1:4173/ … <each step, as the video does it>
 
 ## Expected
