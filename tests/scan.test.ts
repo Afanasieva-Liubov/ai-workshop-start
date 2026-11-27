@@ -3,7 +3,7 @@
 // where skills live are yours to add.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -24,6 +24,43 @@ test('malformed front matter → the directory name, no description and a warnin
   assert.equal(
     parsed.warning,
     'malformed front matter: Nested mappings are not allowed in compact mappings at line 3, column 14; using the directory name',
+  );
+});
+
+// 100 aliases: the yaml package refuses to build them (a YAML bomb guard), and it throws instead of
+// listing an error. Issue #48.
+const aliases = `---\nname: alias\ndescription: &a Aliases.\nx: [${Array(100).fill('*a').join(', ')}]\n---\n# Alias\n`;
+
+test('100 or more YAML aliases → malformed front matter: the directory name and a warning; 99 are read', () => {
+  const parsed = parseSkill(aliases);
+  assert.equal(parsed.name, undefined);
+  assert.equal(parsed.description, '');
+  assert.equal(parsed.body, '# Alias');
+  assert.equal(
+    parsed.warning,
+    'malformed front matter: Excessive alias count indicates a resource exhaustion attack; using the directory name',
+  );
+  const fewer = parseSkill(aliases.replace('*a, ', ''));
+  assert.equal(fewer.warning, undefined);
+  assert.equal(fewer.name, 'alias');
+});
+
+test('scan of a directory with 100 YAML aliases in one SKILL.md → every skill listed, a warning, exit code 0', async (t) => {
+  const repository = mkdtempSync(join(tmpdir(), 'skill-atlas-alias-'));
+  t.after(() => rmSync(repository, { recursive: true, force: true }));
+  mkdirSync(join(repository, '.agents/skills/alias'), { recursive: true });
+  writeFileSync(join(repository, '.agents/skills/alias/SKILL.md'), aliases);
+  mkdirSync(join(repository, '.claude/skills/commits'), { recursive: true });
+  writeFileSync(join(repository, '.claude/skills/commits/SKILL.md'), skill('commits'));
+  const result = await atlas(['scan', repository]);
+  assert.equal(result.code, 0, result.stderr);
+  const root = pathToFileURL(repository).href;
+  assert.match(result.stdout, / · 2 skills$/m);
+  assert.match(result.stdout, new RegExp(`^alias\n  ${root}/\\.agents/skills/alias/SKILL\\.md$`, 'm'));
+  assert.match(result.stdout, /^commits — The commits skill\.$/m);
+  assert.equal(
+    result.stderr,
+    'warning: .agents/skills/alias/SKILL.md: malformed front matter: Excessive alias count indicates a resource exhaustion attack; using the directory name',
   );
 });
 

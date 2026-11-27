@@ -20,6 +20,17 @@ in the CLI, then the [same filter](../../spec/web.md#filter) in the web view.
 The CLI commands send stderr to `/dev/null`: the fixture's malformed `release-checklist` warning, on purpose,
 would push the output off the screen. The web view shows it under the field.
 
+## 100 YAML aliases
+[yaml-aliases.mp4](yaml-aliases.mp4), recorded by [yaml-aliases.mjs](yaml-aliases.mjs): a SKILL.md whose front matter
+uses an anchor 100 times is [malformed front matter](../../spec/analysis.md#details), a warning; the scan goes on (#48).
+Its repository is `./aliases` on the stage, written by [stage.mjs](stage.mjs): two skills, `alias` and `commits`.
+
+| Time | Shows |
+| --- | --- |
+| 0:05 | `cat aliases/.agents/skills/alias/SKILL.md`: `x: [*a, *a, …]`, 100 aliases |
+| 0:13 | `scan ./aliases`: `aliases · 2 skills`, `alias` by its directory name, the warning, exit code 0 |
+| 0:22 | `serve`: the same two skills, the warning under the field; `alias` selected |
+
 ## Recording
 The real `./skill-atlas` in a real terminal ([ttyd](https://github.com/tsl0922/ttyd)) and the real
 `./skill-atlas serve`, driven by [Playwright](https://playwright.dev) in Google Chrome; ffmpeg makes the MP4.
@@ -38,7 +49,7 @@ It needs `ttyd`, `ffmpeg` and Google Chrome on the machine, and the ports 7681 a
 A new video, and the cases ready for it: the [demo-video](../../.agents/skills/demo-video/SKILL.md) skill.
 
 ## Tests
-The demo, as [Playwright tests](../../tests/demo/filter.spec.ts): each scene of [filter.mjs](filter.mjs)
+The demo, as Playwright tests, [filter.spec.ts](../../tests/demo/filter.spec.ts) and [yaml-aliases.spec.ts](../../tests/demo/yaml-aliases.spec.ts): each scene of its video
 on the same stage, checked for what it shows, and recorded, every run: `test-results/<test>/video.webm`.
 The end of each scene is a screenshot, compared pixel for pixel with its baseline in
 [tests/demo/screenshots/](../../tests/demo/screenshots/), made on Linux, like CI: a changed pixel fails the test.
@@ -48,7 +59,7 @@ The stage runs in `/tmp/skill-atlas-stage`, so that the paths on screen are the 
 ```console
 $ npm ci && npx playwright install ffmpeg
 $ npm run test:demo
-  11 passed (40s)
+  13 passed (45s)
 $ ls test-results/*/video.webm
 $ npx playwright test --update-snapshots    # the screenshots again, on purpose, on Linux
 ```

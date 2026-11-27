@@ -1,6 +1,6 @@
 // The stage of the demo, the same for the video (recorder.mjs) and for its tests (playwright.config.ts):
 // the same data (./fixture), the same viewport, the same fonts, the same terminal and the same web view.
-import { existsSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +19,16 @@ for (const entry of ['skill-atlas', 'src', 'fixture']) {
   symlinkSync(target, link);
 }
 export const fixture = join(stage, 'fixture');
+// A repository whose one SKILL.md uses a YAML anchor 100 times (issue #48), next to a plain skill: written here,
+// not in ./fixture, whose six skills every other scene shows. The yaml package builds at most 99 aliases.
+export const aliases = join(stage, 'aliases');
+for (const [path, text] of [
+  ['.agents/skills/alias/SKILL.md', `---\nname: alias\ndescription: &a Aliases.\nx: [${Array(100).fill('*a').join(', ')}]\n---\n# Alias\n`],
+  ['.claude/skills/commits/SKILL.md', '---\nname: commits\ndescription: Write commit messages the way this repository does.\n---\n# Commits\n'],
+]) {
+  mkdirSync(dirname(join(aliases, path)), { recursive: true });
+  writeFileSync(join(aliases, path), text);
+}
 export const size = { width: 1280, height: 720 };
 export const TTY = 7681, WEB = 4173;
 export const ttyUrl = `http://127.0.0.1:${TTY}/`;

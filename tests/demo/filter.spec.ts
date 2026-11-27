@@ -4,41 +4,12 @@
 // `npm run test:demo`; spec/analysis.md#demo-tests.
 import { expect, test, type Page } from '@playwright/test';
 import { fixture, stage, ttyUrl, webUrl } from '../../docs/demo/stage.mjs';
+import { run } from './terminal.ts';
 
 // What a scene leaves on screen stays in its video for a moment, as in the demo.
 test.afterEach(async ({ page }) => {
   await page.waitForTimeout(1000);
 });
-
-/** The terminal's text, one line per line of output: rows the terminal wrapped are joined again. */
-function screen(page: Page) {
-  return page.evaluate(() => {
-    const buffer = (globalThis as any).term.buffer.active;
-    const lines: string[] = [];
-    for (let i = 0; i < buffer.length; i++) {
-      const row = buffer.getLine(i);
-      const text = row.translateToString(true);
-      if (row.isWrapped && lines.length) lines[lines.length - 1] += text;
-      else lines.push(text);
-    }
-    return lines.join('\n').trimEnd();
-  });
-}
-
-/** Types `command` into a new shell, as the demo does, and returns its output once the prompt is back. */
-async function run(page: Page, command: string) {
-  await page.goto(ttyUrl);
-  await page.waitForSelector('.xterm-helper-textarea');
-  await page.click('.xterm');
-  await expect.poll(() => screen(page)).toBe('$');
-  await page.keyboard.type(command, { delay: 55 });
-  await page.keyboard.press('Enter');
-  const prompt = `$ ${command}\n`;
-  await expect.poll(() => screen(page), { timeout: 10_000 }).toMatch(/\n\$$/);
-  const text = await screen(page);
-  expect(text.startsWith(prompt)).toBe(true);
-  return text.slice(prompt.length, -'\n$'.length);
-}
 
 // The stage's fixed paths, the same on every machine, so that the screenshots are too.
 const link = (path: string) => `  file://${stage}/fixture/${path}/SKILL.md`;
