@@ -10,7 +10,7 @@ import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { browserArgs, browserEnv, contextOptions, root, serve, size, stage, ttyd, ttyUrl, webUrl } from './stage.mjs';
 
-export { fixture, root, webUrl } from './stage.mjs';
+export { fixture, greek, root, webUrl } from './stage.mjs';
 
 async function until(url) {
   for (let i = 0; i < 100; i++) {

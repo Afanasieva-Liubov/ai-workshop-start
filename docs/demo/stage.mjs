@@ -1,6 +1,6 @@
 // The stage of the demo, the same for the video (recorder.mjs) and for its tests (playwright.config.ts):
 // the same data (./fixture), the same viewport, the same fonts, the same terminal and the same web view.
-import { existsSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +19,11 @@ for (const entry of ['skill-atlas', 'src', 'fixture']) {
   symlinkSync(target, link);
 }
 export const fixture = join(stage, 'fixture');
+// A repository with one upper-case Greek skill, for the final-sigma demo: `ΟΔΥΣ` lowers to `οδυς`, with the final ς,
+// but inside `ΟΔΥΣΣΕΥΣ` the Σ is a σ (#49). A real directory in the stage, written here: ./fixture stays as it is.
+export const greek = join(stage, 'greek');
+mkdirSync(join(greek, '.agents/skills/greek'), { recursive: true });
+writeFileSync(join(greek, '.agents/skills/greek/SKILL.md'), '---\nname: ΟΔΥΣΣΕΥΣ\ndescription: İSTANBUL straße.\n---\n');
 export const size = { width: 1280, height: 720 };
 export const TTY = 7681, WEB = 4173;
 export const ttyUrl = `http://127.0.0.1:${TTY}/`;

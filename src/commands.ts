@@ -72,9 +72,12 @@ function printRepository(repository: Repository, all: Skill[], words: string[], 
 
 /** Every word is in the name or the description, case-insensitive, as a substring. The web page has the same rule. */
 function matches(skill: Skill, words: string[]): boolean {
-  const text = `${skill.name}\n${skill.description}`.toLowerCase();
-  return words.every((word) => text.includes(word.toLowerCase()));
+  const text = fold(`${skill.name}\n${skill.description}`);
+  return words.every((word) => text.includes(fold(word)));
 }
+
+/** Lower case, with the final sigma ς as σ: `ΟΔΥΣ` lowers to `οδυς`, but inside `ΟΔΥΣΣΕΥΣ` the Σ is a σ. */
+const fold = (text: string) => text.toLowerCase().replaceAll('ς', 'σ');
 
 function firstSentence(text: string): string {
   const line = text.replace(/\s+/g, ' ').trim();

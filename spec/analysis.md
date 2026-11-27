@@ -24,9 +24,9 @@ Skill: id = `repo:path`, name, description, commit, its SKILL.md text
 JetBrains/koog, each at a fixed commit; its output must equal `e2e/expected/<repo>.txt`.
 `UPDATE_EXPECTED=1` stores the new output instead.
 ## Demo tests
-`npm run test:demo` (or `npm run e2e`): the [demo](../docs/demo/README.md) as Playwright tests, one per scene of `filter.mjs`:
+`npm run test:demo` (or `npm run e2e`): the [demo](../docs/demo/README.md) as Playwright tests, one per scene of `filter.mjs` and `final-sigma.mjs`:
 the real CLI in a real terminal (ttyd) and the real web view, in Google Chrome; each checks what its scene shows.
-- The demo's stage, `docs/demo/stage.mjs`: the same **data** (`./fixture`), **viewport** (1280×720) and **fonts**
+- The demo's stage, `docs/demo/stage.mjs`: the same **data** (`./fixture`, and `./greek` with one skill, `ΟΔΥΣΣΕΥΣ`), **viewport** (1280×720) and **fonts**
   (DejaVu, from npm at a fixed version, the only fonts Chrome sees: `Arial` → DejaVu Sans)
 - The same **paths** on every machine: the terminal and the web view run in `/tmp/skill-atlas-stage`, its
   `./skill-atlas` and `./fixture` link to the checkout (`file:///tmp/skill-atlas-stage/fixture/…`)

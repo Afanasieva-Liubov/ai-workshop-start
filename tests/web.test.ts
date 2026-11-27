@@ -2,9 +2,10 @@
 // a small GitHub repository answered in tests/helpers.ts.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
-import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { after, test } from 'node:test';
 import { JSDOM } from 'jsdom';
@@ -245,6 +246,22 @@ test('the page: ?filter=<words> fills the field on load and filters the scan', a
   // The first match is shown, not a skill the filter hides.
   assert.equal(view.shown(), 'mps-tests');
   assert.equal(view.empty(), null);
+});
+
+test('the page: case-insensitive in Greek too: typing a Σ at the end of ΟΔΥ keeps ΟΔΥΣΣΕΥΣ', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'greek-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.agents/skills/greek'), { recursive: true });
+  writeFileSync(join(root, '.agents/skills/greek/SKILL.md'), '---\nname: ΟΔΥΣΣΕΥΣ\ndescription: İSTANBUL straße.\n---\n');
+  const view = await filterPage(`repository=${encodeURIComponent(root)}`);
+  for (const word of ['ΟΔΥ', 'ΟΔΥΣ', 'οδυσ', 'οδυς', 'ΟΔΥΣΣΕΥΣ']) {
+    view.type(word);
+    assert.deepEqual(view.names(), ['ΟΔΥΣΣΕΥΣ'], word);
+    assert.equal(view.status(), `${basename(root)} · 1 of 1 skill`, word);
+    assert.equal(view.empty(), null, word);
+  }
+  view.type('ΟΔΥΞ');
+  assert.equal(view.empty(), 'no skills match "ΟΔΥΞ"');
 });
 
 test('the page: no match → no skills match "<words>"', async () => {
