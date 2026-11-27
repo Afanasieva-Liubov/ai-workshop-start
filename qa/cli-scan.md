@@ -69,5 +69,6 @@ warning: .agents/skills/release-checklist/SKILL.md: malformed front matter: …;
 - Step 1: the first sentences start in one column, two spaces after the longest name,
   `mps-aspect-generator`; a blank line after the header and between the skills; the names in **bold**,
   nothing else.
-- Step 2: the same text with no `^[[1m`: piped output is plain.
+- Step 2: the same text with no `^[[1m`: piped output is plain. `cat -v` also shows the header's
+  `·` as `M-BM-7` (`fixture M-BM-7 6 skills`); that is expected.
 - Step 3: the names are not bold.
