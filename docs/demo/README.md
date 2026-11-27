@@ -20,6 +20,21 @@ in the CLI, then the [same filter](../../spec/web.md#filter) in the web view.
 The CLI commands send stderr to `/dev/null`: the fixture's malformed `release-checklist` warning, on purpose,
 would push the output off the screen. The web view shows it under the field.
 
+## A request for // keeps the web view running
+[double-slash.mp4](double-slash.mp4), recorded by [double-slash.mjs](double-slash.mjs): the requests that used to
+stop `./skill-atlas serve` ([#47](https://github.com/Afanasieva-Liubov/ai-workshop-start/issues/47)) now get an
+answer from the [server](../../spec/web.md#server), and it keeps running.
+
+| Time | Shows |
+| --- | --- |
+| 0:02 | the web view at `/` |
+| 0:04 | `http://127.0.0.1:4173//` in the browser: `Not found`, not a reset connection |
+| 0:10 | `curl` `//` → `404 Not Found` |
+| 0:17 | `//` with `Host: evil.com` → `403 Forbidden` |
+| 0:24 | `/\` sent as is → `404 Not Found` |
+| 0:28 | `/` after them → `200 OK`: the server still runs |
+| 0:33 | the web view still scans the fixture, `fixture · 6 skills` |
+
 ## Recording
 The real `./skill-atlas` in a real terminal ([ttyd](https://github.com/tsl0922/ttyd)) and the real
 `./skill-atlas serve`, driven by [Playwright](https://playwright.dev) in Google Chrome; ffmpeg makes the MP4.
@@ -38,7 +53,8 @@ It needs `ttyd`, `ffmpeg` and Google Chrome on the machine, and the ports 7681 a
 A new video, and the cases ready for it: the [demo-video](../../.agents/skills/demo-video/SKILL.md) skill.
 
 ## Tests
-The demo, as [Playwright tests](../../tests/demo/filter.spec.ts): each scene of [filter.mjs](filter.mjs)
+The demo, as Playwright tests ([filter.spec.ts](../../tests/demo/filter.spec.ts),
+[double-slash.spec.ts](../../tests/demo/double-slash.spec.ts)): each scene of [filter.mjs](filter.mjs) and [double-slash.mjs](double-slash.mjs)
 on the same stage, checked for what it shows, and recorded, every run: `test-results/<test>/video.webm`.
 The end of each scene is a screenshot, compared pixel for pixel with its baseline in
 [tests/demo/screenshots/](../../tests/demo/screenshots/), made on Linux, like CI: a changed pixel fails the test.

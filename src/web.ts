@@ -18,7 +18,6 @@ export type WebOptions = {
 /** Starts the web view; resolves to the running server and its URL. */
 export async function serve({ open, port }: WebOptions): Promise<{ server: Server; url: string }> {
   const server = createServer(async (request, response) => {
-    const url = new URL(request.url ?? '/', 'http://localhost');
     const send = (status: number, type: string, body: string) => {
       response.writeHead(status, { 'content-type': `${type}; charset=utf-8`, 'cache-control': 'no-store' });
       response.end(body);
@@ -28,6 +27,15 @@ export async function serve({ open, port }: WebOptions): Promise<{ server: Serve
     const own = typeof address === 'object' && address ? [`127.0.0.1:${address.port}`, `localhost:${address.port}`] : [];
     if (!own.includes(request.headers.host?.toLowerCase() ?? '')) return send(403, 'text/plain', 'Forbidden: unknown Host');
     if (request.method !== 'GET') return send(405, 'text/plain', 'Method not allowed');
+    // The target is a path: `new URL('//a', base)` would read `a` as a host, and `//` or `/\` throw (and stop
+    // the server, as nothing catches them).
+    const target = request.url ?? '/';
+    let url: URL;
+    try {
+      url = new URL(target.startsWith('/') ? `http://localhost${target}` : target, 'http://localhost');
+    } catch {
+      return send(404, 'text/plain', 'Not found');
+    }
     if (url.pathname === '/') return send(200, 'text/html', PAGE);
     if (url.pathname !== '/api/scan') return send(404, 'text/plain', 'Not found');
     const repository = url.searchParams.get('repository')?.trim();
