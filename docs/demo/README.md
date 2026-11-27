@@ -1,6 +1,6 @@
 # Demo videos
 
-Short videos of the features, each under a minute, on [fixture/](../../fixture/README.md).
+Short videos of the features, each under a minute, on [fixture/](../../fixture/README.md) (or a repository of the stage).
 
 ## The filter
 [filter.mp4](filter.mp4), recorded by [filter.mjs](filter.mjs): the [filter](../../spec/cli.md#filter)
@@ -19,6 +19,19 @@ in the CLI, then the [same filter](../../spec/web.md#filter) in the web view.
 
 The CLI commands send stderr to `/dev/null`: the fixture's malformed `release-checklist` warning, on purpose,
 would push the output off the screen. The web view shows it under the field.
+
+## Greek in the filter
+[final-sigma.mp4](final-sigma.mp4), recorded by [final-sigma.mjs](final-sigma.mjs): an upper-case Greek
+[filter](../../spec/cli.md#filter) that ends in `Σ`, on the stage's `./greek` (one skill, `ΟΔΥΣΣΕΥΣ`), not the
+fixture (#49). `ΟΔΥΣ` lowers to `οδυς`, with the final `ς`; inside the name the `Σ` is a `σ`: one letter.
+
+| Time | Shows |
+| --- | --- |
+| 0:06 | `scan ./greek ΟΔΥ`: `greek · 1 of 1 skill` |
+| 0:10 | `scan ./greek ΟΔΥΣ`: still `1 of 1 skill` |
+| 0:16 | `scan ./greek οδυς`: the lower case, with the final `ς`, too |
+| 0:22 | `serve`: `./greek` scanned, `ΟΔΥ` typed in the filter: `1 of 1 skill` |
+| 0:24 | then `Σ`: `ΟΔΥΣΣΕΥΣ` stays, `1 of 1 skill` |
 
 ## A request for // keeps the web view running
 [double-slash.mp4](double-slash.mp4), recorded by [double-slash.mjs](double-slash.mjs): the requests that used to
@@ -54,7 +67,8 @@ A new video, and the cases ready for it: the [demo-video](../../.agents/skills/d
 
 ## Tests
 The demo, as Playwright tests ([filter.spec.ts](../../tests/demo/filter.spec.ts),
-[double-slash.spec.ts](../../tests/demo/double-slash.spec.ts)): each scene of [filter.mjs](filter.mjs) and [double-slash.mjs](double-slash.mjs)
+[double-slash.spec.ts](../../tests/demo/double-slash.spec.ts), [final-sigma.spec.ts](../../tests/demo/final-sigma.spec.ts)): each scene of
+[filter.mjs](filter.mjs), [double-slash.mjs](double-slash.mjs) and [final-sigma.mjs](final-sigma.mjs)
 on the same stage, checked for what it shows, and recorded, every run: `test-results/<test>/video.webm`.
 The end of each scene is a screenshot, compared pixel for pixel with its baseline in
 [tests/demo/screenshots/](../../tests/demo/screenshots/), made on Linux, like CI: a changed pixel fails the test.
@@ -64,7 +78,7 @@ The stage runs in `/tmp/skill-atlas-stage`, so that the paths on screen are the 
 ```console
 $ npm ci && npx playwright install ffmpeg
 $ npm run test:demo
-  11 passed (40s)
+  19 passed (1.3m)
 $ ls test-results/*/video.webm
 $ npx playwright test --update-snapshots    # the screenshots again, on purpose, on Linux
 ```

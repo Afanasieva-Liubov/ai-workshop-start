@@ -3,9 +3,9 @@
 // where skills live are yours to add.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 import { openGitHub } from '../src/core/github.ts';
@@ -279,6 +279,21 @@ test('filter: case-insensitive', async () => {
   assert.equal(stdout.split('\n')[0], 'fixture · 2 of 6 skills');
   assert.deepEqual(names(stdout), ['mps-aspect-generator', 'mps-tests']);
   assert.deepEqual(names((await filtered('Code-STYLE')).stdout), ['code-style']);
+});
+
+test('filter: case-insensitive in Greek too: a final Σ in the word still matches the Σ inside a name', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'greek-'));
+  try {
+    mkdirSync(join(root, '.agents/skills/greek'), { recursive: true });
+    writeFileSync(join(root, '.agents/skills/greek/SKILL.md'), '---\nname: ΟΔΥΣΣΕΥΣ\ndescription: İSTANBUL straße.\n---\n');
+    const greek = async (...words: string[]) => (await atlas(['scan', root, ...words])).stdout.split('\n')[0];
+    for (const word of ['ΟΔΥ', 'ΟΔΥΣ', 'οδυσ', 'οδυς', 'ΟΔΥΣΣΕΥΣ', 'οδυσσευς']) {
+      assert.equal(await greek(word), `${basename(root)} · 1 of 1 skill`, word);
+    }
+    assert.equal(await greek('ΟΔΥΞ'), `${basename(root)} · 0 of 1 skill`);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('filter: a word in the description only, even past its first sentence', async () => {

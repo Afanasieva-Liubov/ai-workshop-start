@@ -72,7 +72,9 @@ let current = '';
 
 const filterWords = () => $('filter').value.split(/\s+/).filter(Boolean);
 /** The CLI's rule: every word is in the name or the description, case-insensitive, as a substring. */
-const matches = (skill, words) => { const text = `${skill.name}\n${skill.description}`.toLowerCase(); return words.every((word) => text.includes(word.toLowerCase())); };
+/** Lower case, with the final sigma ς as σ: `ΟΔΥΣ` lowers to `οδυς`, but inside `ΟΔΥΣΣΕΥΣ` the Σ is a σ. */
+const fold = (text) => text.toLowerCase().replaceAll('ς', 'σ');
+const matches = (skill, words) => { const text = fold(`${skill.name}\n${skill.description}`); return words.every((word) => text.includes(fold(word))); };
 const count = (n) => `${n} ${n === 1 ? 'skill' : 'skills'}`;
 
 function updateAddress() {
