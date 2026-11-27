@@ -11,19 +11,25 @@ Checks that `scan` prints every skill of [fixture/](../fixture/README.md), with 
 **Should see**
 ```
 fixture · 6 skills
-code-style — Follow the project's code style.
+
+code-style            Follow the project's code style.
   file://<checkout>/fixture/.github/skills/code-style/SKILL.md
-commits — Write commit messages the way this repository does.
+
+commits               Write commit messages the way this repository does.
   file://<checkout>/fixture/.claude/skills/commits/SKILL.md
-mps-aspect-generator — Generate an MPS language aspect.
+
+mps-aspect-generator  Generate an MPS language aspect.
   file://<checkout>/fixture/plugins/mcp-tools/resources/skills/mps-aspect-generator/SKILL.md
   part of the product: plugins/mcp-tools/resources
-mps-tests — Run the MPS tests for the module you changed.
+
+mps-tests             Run the MPS tests for the module you changed.
   file://<checkout>/fixture/.agents/skills/mps-tests/SKILL.md
   also in .claude/skills/mps-tests/SKILL.md
+
 release-checklist
   file://<checkout>/fixture/.agents/skills/release-checklist/SKILL.md
-writing-lint-checks — Write a lint check the way this repository does.
+
+writing-lint-checks   Write a lint check the way this repository does.
   file://<checkout>/fixture/agent/skills/writing-lint-checks/SKILL.md
 warning: .agents/skills/release-checklist/SKILL.md: malformed front matter: …; using the directory name
 ```
@@ -52,3 +58,17 @@ warning: .agents/skills/release-checklist/SKILL.md: malformed front matter: …;
 **Should see**
 - Step 1: the header and the six skills, and **no** `warning:` line.
 - Step 2: **only** the `warning:` line.
+
+## 4. Easy to read: columns, blank lines, bold names
+**Steps**
+1. In a terminal, run `./skill-atlas scan ./fixture 2>/dev/null`.
+2. Run `./skill-atlas scan ./fixture 2>/dev/null | cat -v`.
+3. Run `NO_COLOR=1 ./skill-atlas scan ./fixture 2>/dev/null`.
+
+**Should see**
+- Step 1: the first sentences start in one column, two spaces after the longest name,
+  `mps-aspect-generator`; a blank line after the header and between the skills; the names in **bold**,
+  nothing else.
+- Step 2: the same text with no `^[[1m`: piped output is plain. `cat -v` also shows the header's
+  `·` as `M-BM-7` (`fixture M-BM-7 6 skills`); that is expected.
+- Step 3: the names are not bold.

@@ -14,6 +14,8 @@ process.exitCode = await run(process.argv.slice(2), {
   open,
   print: (text) => console.log(text),
   error: (text) => console.error(text),
+  // Bold names on a terminal only: piped output stays plain text; NO_COLOR (https://no-color.org) turns it off.
+  bold: Boolean(process.stdout.isTTY) && !process.env.NO_COLOR,
   // The process stays up while the server listens.
   serve: async (port) => (await serve({ open, port })).url,
 });

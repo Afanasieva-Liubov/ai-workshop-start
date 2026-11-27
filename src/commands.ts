@@ -10,6 +10,8 @@ export type Context = {
   print(text: string): void;
   /** Errors and warnings. */
   error(text: string): void;
+  /** Skill names in bold (ANSI): the Node CLI on a terminal, without NO_COLOR. */
+  bold?: boolean;
   /** Starts the local web view on the port (0: any free one); resolves to its URL. The Node CLI only. */
   serve?(port: number): Promise<string>;
 };
@@ -56,14 +58,21 @@ async function serveCommand(args: string[], context: Context) {
   context.print(`Skill Atlas web view: ${await context.serve(port)}`);
 }
 
-/** `<owner>/<repo> · N skills` (`M of N skills` with words), then each skill's name, first sentence and link. */
-function printRepository(repository: Repository, all: Skill[], words: string[], { print }: Context) {
+/**
+ * `<owner>/<repo> · N skills` (`M of N skills` with words), then each skill: its name and first sentence in
+ * aligned columns, and under it its link and the rest; a blank line after the header and between the skills.
+ */
+function printRepository(repository: Repository, all: Skill[], words: string[], { print, bold }: Context) {
   const skills = all.filter((skill) => matches(skill, words));
   const total = `${all.length} ${all.length === 1 ? 'skill' : 'skills'}`;
   print(`${repository.id} · ${words.length ? `${skills.length} of ${total}` : total}`);
   if (words.length && skills.length === 0) print(`no skills match "${words.join(' ')}"`);
+  const width = Math.max(0, ...skills.map((skill) => skill.name.length));
+  // The padding is counted on the plain name: the bold codes take no room on screen.
+  const name = (skill: Skill) => (bold ? `\x1b[1m${skill.name}\x1b[22m` : skill.name);
   for (const skill of skills) {
-    print(skill.description ? `${skill.name} — ${firstSentence(skill.description)}` : skill.name);
+    print('');
+    print(skill.description ? `${name(skill)}${' '.repeat(width - skill.name.length + 2)}${firstSentence(skill.description)}` : name(skill));
     print(`  ${skillLink(repository, skill)}`);
     if (skill.copies.length > 0) print(`  also in ${skill.copies.join(', ')}`);
     if (skill.product) print(`  part of the product: ${skill.product}`);
