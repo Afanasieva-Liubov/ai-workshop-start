@@ -12,8 +12,26 @@ Usually an automation starts you when an issue is labeled **Delegated to AI**; t
   (`gh issue list --state open --label "Delegated to AI" --search "-linked:pr sort:created-asc" --limit 1`).
   None → stop and say so; do not invent work.
 - Not labeled `Delegated to AI`, closed, or already has an open PR → stop: it is not yours, or it is done.
-- Unclear, or asks for something the [spec](../../../spec/) contradicts → do not guess: comment
-  on the issue with the question (`gh issue comment`) and stop.
+- Unclear, leaves a decision open, or asks for something the [spec](../../../spec/) contradicts →
+  do not guess: [ask on Slack](#ask-on-slack).
+
+## Ask on Slack
+One question, in Slack channel `C0CMGGBUN49`, with the bot token in `$SLACK_BOT_TOKEN`
+(never print it or write it anywhere). Say the issue link, what is open, and the options you see:
+```
+curl -s https://slack.com/api/chat.postMessage -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+  --data-urlencode channel=C0CMGGBUN49 --data-urlencode "text=<issue url>: <the question>"
+```
+Keep the `ts` of Slack's answer: it is the thread. Then wait for the reply **in that thread**: check it
+every few minutes (about 5), for up to an hour:
+```
+curl -s -G https://slack.com/api/conversations.replies -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+  --data-urlencode channel=C0CMGGBUN49 --data-urlencode ts=<ts>
+```
+The reply is a message after the first one, from a person (no `bot_id`).
+- A reply → follow it and go on; say the question and the answer in the PR body.
+- No reply after the hour, `$SLACK_BOT_TOKEN` not set, or Slack answers `"ok": false` → comment on
+  the issue with the question (`gh issue comment`) and stop.
 
 ## Before you start
 - Read [spec/](../../../spec/) and [AGENTS.md](../../../AGENTS.md).
