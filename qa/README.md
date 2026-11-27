@@ -24,3 +24,5 @@ The standard manual checks of Skill Atlas: each script has its steps and what a 
 A step passes when you see exactly what its **Should see** says. Otherwise it fails: open an issue with
 the script and the step number, the command, and what you saw instead.
 Label it `Delegated to AI`, so that an agent picks it up and fixes it.
+Only for a **blocking** failure (the step cannot be done, or its result is wrong or missing); a
+non-blocking one (the result is right, only the look is off) goes in the report, with no issue.

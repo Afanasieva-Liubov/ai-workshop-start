@@ -111,6 +111,12 @@ For each step, what was seen against its **Should see**:
 - **Fail**: anything else: a different text, a missing or an extra line, a wrong exit code, a step that
   could not be done. Write down what was there instead.
 - A case passes when all its steps do.
+- A fail is **blocking** or **non-blocking**:
+  - **Blocking**: the user cannot get what the step is for: a step that cannot be done, an error or a
+    crash, a wrong exit code, a wrong or missing result (a skill, a line, a value), the next steps cut off.
+  - **Non-blocking**: the result is there and right, only the look is off: spacing, alignment, a color,
+    a typo, a line wrapped differently.
+  - Not sure → blocking.
 - **Look at the video** before the verdict: a frame of each step
   (`ffmpeg -ss <at> -i /tmp/manual-qa/<script>.mp4 -frames:v 1 /tmp/manual-qa/<step>.png`), read as an
   image. The text read back is what you asked for; the frame is what a tester sees: something extra on
@@ -130,7 +136,8 @@ qa/web-view.md — web-view.mp4
 | Case | Result | Video | Seen instead |
 | --- | --- | --- | --- |
 | 1. The empty page | pass | 0:04 | |
-| 3. A selected skill | **fail**, step 1 | 0:17 | a line `null` under the link |
+| 3. A selected skill | **fail** (blocking), step 1 | 0:17 | a line `null` under the link |
+| 4. The filter | **fail** (non-blocking), step 2 | 0:31 | the badges not aligned with the name |
 
 qa/github.md — not run: GitHub rate limit reached, no GITHUB_TOKEN
 ```
@@ -143,9 +150,11 @@ qa/github.md — not run: GitHub rate limit reached, no GITHUB_TOKEN
   video, so name the file and where it is. Then, last, one more comment with exactly this text and
   nothing else: `gh pr comment <pr> --body "manual-qa FINISHED"`; also when a case failed or was not
   run. No pull request → no comment.
-- A failed step → an issue, as [qa/README.md](../../../qa/README.md#reporting) says, **only when asked
-  to file them**: the script and the step, the command, what was seen instead, the video. First check
-  that there is none open for it (`gh issue list --search`).
+- A **blocking** failed step → an issue, as [qa/README.md](../../../qa/README.md#reporting) says, **only
+  when asked to file them**: the script and the step, the command, what was seen instead, the video.
+  First check that there is none open for it (`gh issue list --search`).
+- A **non-blocking** failed step → **no issue** on GitHub, even when asked to file them: it stays in the
+  report, marked non-blocking.
 - Each issue filed → the label **`Delegated to AI`**, so that [issue-to-pr](../issue-to-pr/SKILL.md)
   picks it up: `gh issue create --label "Delegated to AI" …`. The script is the one to fix → say so in
   the issue: the fix is to the script, not to the product. One already open without the label → add
