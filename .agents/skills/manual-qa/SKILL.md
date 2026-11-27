@@ -144,4 +144,9 @@ qa/github.md — not run: GitHub rate limit reached, no GITHUB_TOKEN
 - A failed step → an issue, as [qa/README.md](../../../qa/README.md#reporting) says, **only when asked
   to file them**: the script and the step, the command, what was seen instead, the video. First check
   that there is none open for it (`gh issue list --search`).
+- Each issue filed → the label **`Delegated to AI`**, so that [issue-to-pr](../issue-to-pr/SKILL.md)
+  picks it up: `gh issue create --label "Delegated to AI" …`. The script is the one to fix → say so in
+  the issue: the fix is to the script, not to the product. One already open without the label → add
+  it (`gh issue edit <n> --add-label "Delegated to AI"`), and do not open a second.
+- **Not run** is not a failure: no issue, no label; the reason goes in the report.
 - Do not fix what failed here: that is another task.

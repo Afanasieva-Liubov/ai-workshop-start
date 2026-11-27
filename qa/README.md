@@ -23,3 +23,4 @@ The standard manual checks of Skill Atlas: each script has its steps and what a 
 ## Reporting
 A step passes when you see exactly what its **Should see** says. Otherwise it fails: open an issue with
 the script and the step number, the command, and what you saw instead.
+Label it `Delegated to AI`, so that an agent picks it up and fixes it.
