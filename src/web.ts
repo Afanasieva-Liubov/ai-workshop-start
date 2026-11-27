@@ -45,9 +45,10 @@ export async function serve({ open, port }: WebOptions): Promise<{ server: Serve
     }
   });
   await new Promise<void>((resolve, reject) => {
-    server.once('error', (error: NodeJS.ErrnoException) =>
-      reject(error.code === 'EADDRINUSE' ? new AtlasError(`Port ${port} is in use; try another: skill-atlas serve <port>`) : error),
-    );
+    server.once('error', (error: NodeJS.ErrnoException) => {
+      const why = { EADDRINUSE: 'is in use', EACCES: 'is not allowed for this user' }[error.code ?? ''];
+      reject(why ? new AtlasError(`Port ${port} ${why}; try another: skill-atlas serve <port>`) : error);
+    });
     server.listen(port, '127.0.0.1', resolve);
   });
   const address = server.address();

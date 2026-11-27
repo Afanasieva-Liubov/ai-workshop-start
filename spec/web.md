@@ -22,3 +22,4 @@ and runs until stopped. *Nothing is stored*.
   `text`, the SKILL.md), `warnings`; *never filtered*: the page filters it
 - An empty field or an unreachable repository → `400` with `{ "error": <the CLI's message> }`
 - A bad port (not only digits, or above 65535) → the usage, exit code 1; a port in use → a clear message, exit code 1
+- A port this user may not open (below 1024, not root) → a clear message, exit code 1: `serve 80`
