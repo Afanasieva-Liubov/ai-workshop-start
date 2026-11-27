@@ -7,11 +7,14 @@ description and link.
 $ npm ci
 $ ./skill-atlas scan https://github.com/JetBrains/kotlin
 JetBrains/kotlin · 6 skills
+
 …
-build-tools-bump-gradle-api — Bumps the Gradle API version that Kotlin Gradle plugins are compiled against in the Kotlin compiler repository.
+build-tools-bump-gradle-api  Bumps the Gradle API version that Kotlin Gradle plugins are compiled against in the Kotlin compiler repository.
   https://github.com/JetBrains/kotlin/blob/5ab6270ab772d113e8ad52ebfcaa0109c522ae00/.claude/skills/build-tools-bump-gradle-api/SKILL.md
+
 …
 ```
+The names are aligned in a column, in bold on a terminal (`NO_COLOR` turns it off).
 
 Words after the repository filter the skills: `./skill-atlas scan ./fixture mps` prints only those whose
 name or description contains every word, `fixture · 2 of 6 skills`.

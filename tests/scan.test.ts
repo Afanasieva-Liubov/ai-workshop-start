@@ -33,7 +33,8 @@ test('scan prints the repository, then each skill with its first sentence and pi
     example.stdout,
     [
       'JetBrains/example · 1 skill',
-      'commits — Write commit messages the way this repository does.',
+      '',
+      'commits  Write commit messages the way this repository does.',
       `  https://github.com/JetBrains/example/blob/${EXAMPLE_COMMIT}/.claude/skills/commits/SKILL.md`,
     ].join('\n'),
   );
@@ -46,19 +47,25 @@ test('./fixture: every skill, sorted by name, linked to its file, with a warning
     fixture.stdout,
     [
       'fixture · 6 skills',
-      "code-style — Follow the project's code style.",
+      '',
+      "code-style            Follow the project's code style.",
       `  ${root}/.github/skills/code-style/SKILL.md`,
-      'commits — Write commit messages the way this repository does.',
+      '',
+      'commits               Write commit messages the way this repository does.',
       `  ${root}/.claude/skills/commits/SKILL.md`,
-      'mps-aspect-generator — Generate an MPS language aspect.',
+      '',
+      'mps-aspect-generator  Generate an MPS language aspect.',
       `  ${root}/plugins/mcp-tools/resources/skills/mps-aspect-generator/SKILL.md`,
       '  part of the product: plugins/mcp-tools/resources',
-      'mps-tests — Run the MPS tests for the module you changed.',
+      '',
+      'mps-tests             Run the MPS tests for the module you changed.',
       `  ${root}/.agents/skills/mps-tests/SKILL.md`,
       '  also in .claude/skills/mps-tests/SKILL.md',
+      '',
       'release-checklist',
       `  ${root}/.agents/skills/release-checklist/SKILL.md`,
-      'writing-lint-checks — Write a lint check the way this repository does.',
+      '',
+      'writing-lint-checks   Write a lint check the way this repository does.',
       `  ${root}/agent/skills/writing-lint-checks/SKILL.md`,
     ].join('\n'),
   );
@@ -169,7 +176,7 @@ test('an unusual folder: agent/skills → a skill like any other', async () => {
     result.skills.map((s) => [s.name, s.path, s.product]),
     [['writing-lint-checks', 'agent/skills/writing-lint-checks/SKILL.md', undefined]],
   );
-  assert.match(fixture.stdout, /^writing-lint-checks — /m);
+  assert.match(fixture.stdout, /^writing-lint-checks {3}Write a lint check/m);
 });
 
 test('part of the product: a skill under resources → a skill, marked as part of the product', async () => {
@@ -179,7 +186,7 @@ test('part of the product: a skill under resources → a skill, marked as part o
     result.skills.map((s) => [s.name, s.path, s.product]),
     [['mps-aspect-generator', path, 'plugins/mcp-tools/resources']],
   );
-  assert.match(fixture.stdout, /^mps-aspect-generator — .*\n.*\n {2}part of the product: plugins\/mcp-tools\/resources$/m);
+  assert.match(fixture.stdout, /^mps-aspect-generator {2}.*\n.*\n {2}part of the product: plugins\/mcp-tools\/resources$/m);
 });
 
 test('test data: a SKILL.md among the tests → not a skill, skipped without a warning', async () => {
@@ -250,7 +257,7 @@ test('a fixed commit that does not exist → a clear message', async () => {
 
 // spec/cli.md, Filter: the words after the repository.
 const filtered = async (...words: string[]) => atlas(['scan', FIXTURE, ...words]);
-const names = (stdout: string) => stdout.split('\n').slice(1).filter((line) => !line.startsWith('  ')).map((line) => line.split(' — ')[0]);
+const names = (stdout: string) => stdout.split('\n').slice(1).filter((line) => line && !line.startsWith('  ')).map((line) => line.split(' ')[0]);
 
 test('filter: one word → the skills whose name contains it, counted in the header', async () => {
   const { code, stdout } = await filtered('test');
@@ -260,7 +267,8 @@ test('filter: one word → the skills whose name contains it, counted in the hea
     stdout,
     [
       'fixture · 1 of 6 skills',
-      'mps-tests — Run the MPS tests for the module you changed.',
+      '',
+      'mps-tests  Run the MPS tests for the module you changed.',
       `  ${root}/.agents/skills/mps-tests/SKILL.md`,
       '  also in .claude/skills/mps-tests/SKILL.md',
     ].join('\n'),
@@ -303,4 +311,61 @@ test('scan with no repository → the usage, with the words', async () => {
   const { code, stderr } = await atlas(['scan']);
   assert.equal(code, 1);
   assert.equal(stderr, 'Usage: skill-atlas scan <GitHub URL | directory> [words…]');
+});
+
+// spec/cli.md, Output: aligned columns, blank lines, bold names on a terminal.
+test('output: the names padded to the longest one shown, two spaces, then the first sentence', async () => {
+  const lines = (stdout: string) => stdout.split('\n').filter((line) => line && !line.startsWith('  ')).slice(1);
+  // mps-aspect-generator is the longest of the two: 20 characters.
+  assert.deepEqual(lines((await filtered('mps')).stdout), [
+    'mps-aspect-generator  Generate an MPS language aspect.',
+    'mps-tests             Run the MPS tests for the module you changed.',
+  ]);
+  // The width is that of the skills shown, not of every skill: writing-lint-checks, 19.
+  assert.deepEqual(lines((await filtered('repository')).stdout), [
+    'commits              Write commit messages the way this repository does.',
+    'writing-lint-checks  Write a lint check the way this repository does.',
+  ]);
+});
+
+test('output: a blank line after the header and between the skills; none in the no-match message', async () => {
+  const [header, ...skills] = fixture.stdout.split('\n\n');
+  assert.equal(header, 'fixture · 6 skills');
+  assert.deepEqual(skills.map((block) => block.split('\n')[0].split(' ')[0]),
+    ['code-style', 'commits', 'mps-aspect-generator', 'mps-tests', 'release-checklist', 'writing-lint-checks']);
+  assert.ok(skills.every((block) => block.split('\n').slice(1).every((line) => line.startsWith('  '))));
+  assert.doesNotMatch((await filtered('nothing')).stdout, /\n\n/);
+});
+
+/** The real CLI on a terminal: `script` gives it one. */
+const onTerminal = (args: string[], env: Record<string, string> = {}) => {
+  const command = [process.execPath, CLI, ...args].map((arg) => `'${arg}'`).join(' ');
+  const { NO_COLOR, ...rest } = process.env;
+  const result = spawnSync('script', ['-qec', `${command} 2>/dev/null`, '/dev/null'], { encoding: 'utf8', env: { ...rest, ...env } });
+  return { status: result.status, stdout: result.stdout.replace(/\r\n/g, '\n') };
+};
+const terminal = process.platform === 'linux' ? false : 'needs util-linux script for a terminal';
+
+test('output: on a terminal, the names in bold, still aligned', { skip: terminal }, () => {
+  const { status, stdout } = onTerminal(['scan', FIXTURE, 'mps']);
+  assert.equal(status, 0);
+  assert.match(stdout, /^\x1b\[1mmps-aspect-generator\x1b\[22m {2}Generate an MPS language aspect\.$/m);
+  assert.match(stdout, /^\x1b\[1mmps-tests\x1b\[22m {13}Run the MPS tests/m);
+  // Only the names: the header and the links stay plain.
+  assert.match(stdout, /^fixture · 2 of 6 skills$/m);
+  assert.match(stdout, /^ {2}file:\/\/\S+\/SKILL\.md$/m);
+});
+
+test('output: NO_COLOR on a terminal → plain names', { skip: terminal }, () => {
+  const { status, stdout } = onTerminal(['scan', FIXTURE, 'mps'], { NO_COLOR: '1' });
+  assert.equal(status, 0);
+  assert.doesNotMatch(stdout, /\x1b/);
+  assert.match(stdout, /^mps-aspect-generator {2}Generate/m);
+});
+
+test('output: piped → plain text, no escape codes', () => {
+  const scanned = spawnSync(process.execPath, [CLI, 'scan', FIXTURE], { encoding: 'utf8' });
+  assert.equal(scanned.status, 0, scanned.stderr);
+  assert.doesNotMatch(scanned.stdout, /\x1b/);
+  assert.equal(scanned.stdout, `${fixture.stdout}\n`);
 });

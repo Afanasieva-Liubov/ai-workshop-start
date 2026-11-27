@@ -10,10 +10,12 @@ Checks the [filter](../spec/cli.md#filter): the words after the repository. Ever
 **Should see**
 ```
 fixture · 2 of 6 skills
-mps-aspect-generator — Generate an MPS language aspect.
+
+mps-aspect-generator  Generate an MPS language aspect.
   file://<checkout>/fixture/plugins/mcp-tools/resources/skills/mps-aspect-generator/SKILL.md
   part of the product: plugins/mcp-tools/resources
-mps-tests — Run the MPS tests for the module you changed.
+
+mps-tests             Run the MPS tests for the module you changed.
   file://<checkout>/fixture/.agents/skills/mps-tests/SKILL.md
   also in .claude/skills/mps-tests/SKILL.md
 ```
@@ -26,7 +28,8 @@ mps-tests — Run the MPS tests for the module you changed.
 **Should see**
 ```
 fixture · 1 of 6 skills
-mps-tests — Run the MPS tests for the module you changed.
+
+mps-tests  Run the MPS tests for the module you changed.
   file://<checkout>/fixture/.agents/skills/mps-tests/SKILL.md
   also in .claude/skills/mps-tests/SKILL.md
 ```
@@ -40,9 +43,11 @@ mps-tests — Run the MPS tests for the module you changed.
 **Should see**
 ```
 fixture · 2 of 6 skills
-commits — Write commit messages the way this repository does.
+
+commits              Write commit messages the way this repository does.
   file://<checkout>/fixture/.claude/skills/commits/SKILL.md
-writing-lint-checks — Write a lint check the way this repository does.
+
+writing-lint-checks  Write a lint check the way this repository does.
   file://<checkout>/fixture/agent/skills/writing-lint-checks/SKILL.md
 ```
 - Neither name has `repository`: the descriptions do.

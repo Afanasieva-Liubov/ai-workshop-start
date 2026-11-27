@@ -17,6 +17,8 @@ in the CLI, then the [same filter](../../spec/web.md#filter) in the web view.
 | 0:48 | `nothing` → `no skills match "nothing"` |
 | 0:51 | `?filter=test` in the address fills the field on load and selects the first match |
 
+The CLI prints the skills as [spec/cli.md § Output](../../spec/cli.md#output) says: the names in bold, aligned
+in a column, a blank line between the skills.
 The CLI commands send stderr to `/dev/null`: the fixture's malformed `release-checklist` warning, on purpose,
 would push the output off the screen. The web view shows it under the field.
 

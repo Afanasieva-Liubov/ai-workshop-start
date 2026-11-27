@@ -40,20 +40,41 @@ async function run(page: Page, command: string) {
   return text.slice(prompt.length, -'\n$'.length);
 }
 
+/** Whether each character of the first line starting with `start` is bold, as the terminal draws it: `1` bold, `0` not. */
+function boldness(page: Page, start: string) {
+  return page.evaluate((start) => {
+    const buffer = (globalThis as any).term.buffer.active;
+    for (let i = 0; i < buffer.length; i++) {
+      const row = buffer.getLine(i);
+      if (!row.translateToString(true).startsWith(start)) continue;
+      let bits = '';
+      for (let x = 0; x < row.translateToString(true).length; x++) bits += row.getCell(x).isBold() ? '1' : '0';
+      return bits;
+    }
+    return undefined;
+  }, start);
+}
+
 // The stage's fixed paths, the same on every machine, so that the screenshots are too.
 const link = (path: string) => `  file://${stage}/fixture/${path}/SKILL.md`;
 const skills = {
-  'code-style': ["code-style — Follow the project's code style.", link('.github/skills/code-style')],
-  commits: ['commits — Write commit messages the way this repository does.', link('.claude/skills/commits')],
-  'mps-aspect-generator': ['mps-aspect-generator — Generate an MPS language aspect.',
+  'code-style': ["Follow the project's code style.", link('.github/skills/code-style')],
+  commits: ['Write commit messages the way this repository does.', link('.claude/skills/commits')],
+  'mps-aspect-generator': ['Generate an MPS language aspect.',
     link('plugins/mcp-tools/resources/skills/mps-aspect-generator'), '  part of the product: plugins/mcp-tools/resources'],
-  'mps-tests': ['mps-tests — Run the MPS tests for the module you changed.', link('.agents/skills/mps-tests'),
+  'mps-tests': ['Run the MPS tests for the module you changed.', link('.agents/skills/mps-tests'),
     '  also in .claude/skills/mps-tests/SKILL.md'],
-  'release-checklist': ['release-checklist', link('.agents/skills/release-checklist')],
-  'writing-lint-checks': ['writing-lint-checks — Write a lint check the way this repository does.',
-    link('agent/skills/writing-lint-checks')],
+  'release-checklist': ['', link('.agents/skills/release-checklist')],
+  'writing-lint-checks': ['Write a lint check the way this repository does.', link('agent/skills/writing-lint-checks')],
 };
-const listed = (...names: (keyof typeof skills)[]) => names.flatMap((name) => skills[name]);
+/** The skills as the CLI prints them (spec/cli.md#output): a blank line before each, the names padded to the longest shown. */
+const listed = (...names: (keyof typeof skills)[]) => {
+  const width = Math.max(...names.map((name) => name.length));
+  return names.flatMap((name) => {
+    const [sentence, ...rest] = skills[name];
+    return ['', sentence ? `${name.padEnd(width)}  ${sentence}` : name, ...rest];
+  });
+};
 
 test.describe('the CLI, in a real terminal', () => {
   test('scan ./fixture: every skill, fixture · 6 skills', async ({ page }) => {
@@ -66,6 +87,9 @@ test.describe('the CLI, in a real terminal', () => {
   test('scan ./fixture mps: fixture · 2 of 6 skills', async ({ page }) => {
     expect(await run(page, './skill-atlas scan ./fixture mps 2>/dev/null'))
       .toBe(['fixture · 2 of 6 skills', ...listed('mps-aspect-generator', 'mps-tests')].join('\n'));
+    // On a terminal the names are bold, and only the names: the padding and the sentence are not.
+    expect(await boldness(page, 'mps-tests ')).toBe('1'.repeat(9) + '0'.repeat('             Run the MPS tests for the module you changed.'.length));
+    expect(await boldness(page, 'fixture · ')).not.toContain('1');
     await expect(page).toHaveScreenshot('cli-scan-mps.png');
   });
 
