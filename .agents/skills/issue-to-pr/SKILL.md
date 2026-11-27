@@ -17,7 +17,20 @@ Usually an automation starts you when an issue is labeled **Delegated to AI**; t
 
 ## Ask on Slack
 One question, in Slack channel `C0CMGGBUN49`, with the bot token in `$SLACK_BOT_TOKEN`
-(never print it or write it anywhere). Say the issue link, what is open, and the options you see:
+(never print it or write it anywhere).
+
+**Setup.** Slack works only when the Air environment of the run has both:
+- the secret `SLACK_BOT_TOKEN`: a bot token with `chat:write` and `channels:history`, in the channel;
+- network access to `slack.com` (the sandbox may allow only some hosts, such as GitHub).
+
+Check both first, read-only:
+```
+curl -sS https://slack.com/api/auth.test -H "Authorization: Bearer $SLACK_BOT_TOKEN"
+```
+`"ok":true` → ask. Otherwise note which is missing: the token (unset), the network (curl exit 6,
+7, 28 or 35, no JSON), or the token is bad (`"ok":false` and its `error`), and fall back below.
+
+Say the issue link, what is open, and the options you see:
 ```
 curl -s https://slack.com/api/chat.postMessage -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
   --data-urlencode channel=C0CMGGBUN49 --data-urlencode "text=<issue url>: <the question>"
@@ -32,7 +45,10 @@ The reply is a message after the first one, from a person (no `bot_id`).
 - A reply → follow it and go on; say the question and the answer in the PR body.
 - No reply after the hour, `$SLACK_BOT_TOKEN` not set, curl fails or prints no JSON (Slack not
   reached: a DNS, TLS or connection error), or Slack answers `"ok": false` → comment on the issue
-  with the question (`gh issue comment`) and stop.
+  with the question (`gh issue comment`) and stop. In the comment, and in your final message, say
+  why Slack was not used and what to set up (see **Setup**), e.g. "Slack not used: `SLACK_BOT_TOKEN`
+  is not set and slack.com is blocked (curl exit 35); add the secret and allow `slack.com` in the
+  Air environment".
 
 ## Before you start
 - Read [spec/](../../../spec/) and [AGENTS.md](../../../AGENTS.md).
