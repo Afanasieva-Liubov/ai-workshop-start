@@ -21,6 +21,8 @@ One question, in Slack channel `C0CMGGBUN49`, with the bot token in `$SLACK_BOT_
 
 **Setup.** Slack works only when the Air environment of the run has both:
 - the secret `SLACK_BOT_TOKEN`: a bot token with `chat:write` and `channels:history`, in the channel;
+  Air passes the agent only the env vars named in `FLEET_WORKSPACE_AGENT_ENV_VARIABLES_ALLOWLIST`,
+  so `SLACK_BOT_TOKEN` must be on that list too;
 - network access to `slack.com` (the sandbox may allow only some hosts, such as GitHub).
 
 Check both first, read-only:
