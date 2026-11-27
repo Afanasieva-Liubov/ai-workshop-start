@@ -78,7 +78,7 @@ The stage runs in `/tmp/skill-atlas-stage`, so that the paths on screen are the 
 ```console
 $ npm ci && npx playwright install ffmpeg
 $ npm run test:demo
-  13 passed (50s)
+  19 passed (1.3m)
 $ ls test-results/*/video.webm
 $ npx playwright test --update-snapshots    # the screenshots again, on purpose, on Linux
 ```
