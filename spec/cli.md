@@ -16,6 +16,6 @@ build-tools-bump-gradle-api — Bumps the Gradle API…
 - No words → every skill, as above
 - Words → the skills whose **name or description** contains **every** word (AND), *case-insensitive*, as a
   substring (`test` matches `mps-tests`); the same order, by name
-- Case-insensitive in every script: σ and the final ς are one letter (`ΟΔΥΣ` matches `ΟΔΥΣΣΕΥΣ`)
+- Case-insensitive in Greek too: σ and the final ς are one letter (`ΟΔΥΣ` matches `ΟΔΥΣΣΕΥΣ`)
 - The header counts the matches: `JetBrains/kotlin · 2 of 6 skills`
 - No match → the header, then `no skills match "<words>"`; exit code 0
