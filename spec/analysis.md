@@ -13,6 +13,7 @@ Skill: id = `repo:path`, name, description, commit, its SKILL.md text
 - The name: front matter, else the directory
 - The link pins the *scanned commit*
 - Malformed front matter → a *warning*, the scan goes on
+  - YAML that parses but cannot be read, such as 100 or more aliases (`[*a, *a, …]`, a YAML bomb) → malformed too
 - Unreachable repository → a clear message, exit code 1
 ## Edge cases
 - **Duplicates**: the same skill in several agents' folders, *identical* files of the same name (`.agents/skills/mps-tests`, `.claude/skills/mps-tests`) → one skill, the first by `.agents`, `.claude`, `.github`, `agent`; the others are its `copies`; different files, or identical files of different names → separate skills
@@ -24,9 +25,9 @@ Skill: id = `repo:path`, name, description, commit, its SKILL.md text
 JetBrains/koog, each at a fixed commit; its output must equal `e2e/expected/<repo>.txt`.
 `UPDATE_EXPECTED=1` stores the new output instead.
 ## Demo tests
-`npm run test:demo` (or `npm run e2e`): the [demo](../docs/demo/README.md) as Playwright tests, one per scene of `filter.mjs`:
+`npm run test:demo` (or `npm run e2e`): the [demo](../docs/demo/README.md) as Playwright tests, one per scene of `filter.mjs` and `yaml-aliases.mjs`:
 the real CLI in a real terminal (ttyd) and the real web view, in Google Chrome; each checks what its scene shows.
-- The demo's stage, `docs/demo/stage.mjs`: the same **data** (`./fixture`), **viewport** (1280×720) and **fonts**
+- The demo's stage, `docs/demo/stage.mjs`: the same **data** (`./fixture`, and `./aliases`, 100 YAML aliases, written by it), **viewport** (1280×720) and **fonts**
   (DejaVu, from npm at a fixed version, the only fonts Chrome sees: `Arial` → DejaVu Sans)
 - The same **paths** on every machine: the terminal and the web view run in `/tmp/skill-atlas-stage`, its
   `./skill-atlas` and `./fixture` link to the checkout (`file:///tmp/skill-atlas-stage/fixture/…`)

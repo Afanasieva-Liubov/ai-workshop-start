@@ -2,7 +2,8 @@
 // a small GitHub repository answered in tests/helpers.ts.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { request } from 'node:http';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -121,6 +122,22 @@ test('./fixture: the same skills as the CLI, in the same order, with copies, pro
   for (const skill of body.skills) assert.equal(skill.text, readFileSync(join(FIXTURE, skill.path), 'utf8'));
   assert.equal(body.warnings.length, 1);
   assert.match(body.warnings[0], /^\.agents\/skills\/release-checklist\/SKILL\.md: malformed front matter: /);
+});
+
+test('a SKILL.md with 100 YAML aliases → 200: every skill listed, and a warning for its front matter', async (t) => {
+  const repository = mkdtempSync(join(tmpdir(), 'skill-atlas-alias-'));
+  t.after(() => rmSync(repository, { recursive: true, force: true }));
+  const aliases = `---\nname: alias\ndescription: &a Aliases.\nx: [${Array(100).fill('*a').join(', ')}]\n---\n`;
+  mkdirSync(join(repository, '.agents/skills/alias'), { recursive: true });
+  writeFileSync(join(repository, '.agents/skills/alias/SKILL.md'), aliases);
+  mkdirSync(join(repository, '.claude/skills/commits'), { recursive: true });
+  writeFileSync(join(repository, '.claude/skills/commits/SKILL.md'), '---\nname: commits\ndescription: Write commits.\n---\n');
+  const { status, body } = await scanned(repository);
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.deepEqual(body.skills.map((s: { name: string; description: string }) => [s.name, s.description]), [['alias', ''], ['commits', 'Write commits.']]);
+  assert.deepEqual(body.warnings, [
+    '.agents/skills/alias/SKILL.md: malformed front matter: Excessive alias count indicates a resource exhaustion attack; using the directory name',
+  ]);
 });
 
 test('an empty field or an unreachable repository → 400 with the clear message', async () => {
