@@ -30,8 +30,9 @@ curl -s -G https://slack.com/api/conversations.replies -H "Authorization: Bearer
 ```
 The reply is a message after the first one, from a person (no `bot_id`).
 - A reply → follow it and go on; say the question and the answer in the PR body.
-- No reply after the hour, `$SLACK_BOT_TOKEN` not set, or Slack answers `"ok": false` → comment on
-  the issue with the question (`gh issue comment`) and stop.
+- No reply after the hour, `$SLACK_BOT_TOKEN` not set, curl fails or prints no JSON (Slack not
+  reached: a DNS, TLS or connection error), or Slack answers `"ok": false` → comment on the issue
+  with the question (`gh issue comment`) and stop.
 
 ## Before you start
 - Read [spec/](../../../spec/) and [AGENTS.md](../../../AGENTS.md).
