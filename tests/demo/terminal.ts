@@ -1,4 +1,4 @@
-// The real terminal of the demo's tests (ttyd, on the demo's stage): a command typed as the demo types it, and its output.
+// The real terminal of the demo's tests: a command typed into a new shell, and what it prints.
 import { expect, type Page } from '@playwright/test';
 import { ttyUrl } from '../../docs/demo/stage.mjs';
 

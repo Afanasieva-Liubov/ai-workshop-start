@@ -20,5 +20,6 @@ and runs until stopped. *Nothing is stored*.
 - Listens on `127.0.0.1` only; a request whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>` → `403`
 - `GET /api/scan?repository=<link>` → the scan as JSON: `repository`, `skills` (each with its `link` and
   `text`, the SKILL.md), `warnings`; *never filtered*: the page filters it
+- A path it does not know (`/index.html`, `/api/scan/`, `//`, `/\`) → `404`; *no request stops the server*
 - An empty field or an unreachable repository → `400` with `{ "error": <the CLI's message> }`
 - A bad port (not only digits, or above 65535) → the usage, exit code 1; a port in use → a clear message, exit code 1

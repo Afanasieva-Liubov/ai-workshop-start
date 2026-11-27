@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
+import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -90,6 +91,28 @@ test('a Host other than 127.0.0.1:<port> or localhost:<port> → 403 (DNS rebind
   assert.equal(await status('127.0.0.1'), 403);
   assert.equal(await status(`localhost:${port}`), 200);
   assert.equal(await status(`127.0.0.1:${port}`), 200);
+});
+
+/** The status of a request sent as is, with this request target and Host; 0 if the server did not answer. */
+function raw(target: string, host: string) {
+  const { port } = new URL(url);
+  return new Promise<number>((resolve) => {
+    let reply = '';
+    const socket = connect(Number(port), '127.0.0.1', () => socket.end(`GET ${target} HTTP/1.1\r\nHost: ${host}\r\nConnection: close\r\n\r\n`));
+    socket.on('data', (chunk) => (reply += chunk));
+    socket.on('error', () => resolve(0));
+    socket.on('close', () => resolve(Number(/^HTTP\/1\.1 (\d{3})/.exec(reply)?.[1] ?? 0)));
+  });
+}
+
+test('a path it does not know (//, /\\ too) → 404; a foreign Host → 403; no request stops the server', async () => {
+  const own = `127.0.0.1:${new URL(url).port}`;
+  for (const target of ['//', '//?repository=x', '//@', '/\\', '/index.html', '/api/scan/', '//a', '/a//b', '///api/scan']) {
+    assert.equal(await raw(target, own), 404, target);
+    assert.equal(await raw(target, 'evil.com'), 403, target);
+  }
+  assert.equal(await raw('/', own), 200);
+  assert.equal((await fetch(url)).status, 200);
 });
 
 test('a GitHub repository: its skills, each with its pinned link and its SKILL.md', async () => {
