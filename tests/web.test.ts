@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { request } from 'node:http';
+import { createServer, request } from 'node:http';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { after, test } from 'node:test';
@@ -162,6 +162,19 @@ test('skill-atlas serve on a port in use → a clear message, exit code 1', () =
   const busy = spawnSync(process.execPath, [CLI, 'serve', port], { encoding: 'utf8' });
   assert.equal(busy.status, 1);
   assert.equal(busy.stderr, `Port ${port} is in use; try another: skill-atlas serve <port>\n`);
+});
+
+test('skill-atlas serve on a port this user may not open → a clear message, exit code 1', async (t) => {
+  // Only where the port really is closed to this user: root, or a lower ip_unprivileged_port_start, may open it.
+  const probe = createServer();
+  const code = await new Promise<string | undefined>((resolve) => {
+    probe.once('error', (error: NodeJS.ErrnoException) => resolve(error.code));
+    probe.listen(80, '127.0.0.1', () => probe.close(() => resolve(undefined)));
+  });
+  if (code !== 'EACCES') return t.skip(`port 80 is not closed to this user (${code ?? 'it opens'})`);
+  const denied = spawnSync(process.execPath, [CLI, 'serve', '80'], { encoding: 'utf8', timeout: 5000 });
+  assert.equal(denied.status, 1);
+  assert.equal(denied.stderr, 'Port 80 is not allowed for this user; try another: skill-atlas serve <port>\n');
 });
 
 // spec/web.md, Filter: on the page, over the skills already scanned.
